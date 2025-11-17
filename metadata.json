@@ -1,0 +1,5 @@
+{
+  "name": "SlingMods Thumbnail Generator",
+  "description": "An application for SlingMods to generate high-quality YouTube thumbnails for specific vehicles like the Can-Am Ryker, Spyder, and Polaris Slingshot using AI image generation models.",
+  "requestFramePermissions": []
+}
