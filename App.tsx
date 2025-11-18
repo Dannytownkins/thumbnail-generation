@@ -317,118 +317,173 @@ const App: React.FC = () => {
         <div className="grid grid-cols-12 gap-6">
           {/* LEFT COLUMN - Input & Controls */}
           <div className="col-span-5 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
-            {/* Vehicle Selection */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
-              <VehicleSelector
-                selectedVehicle={selectedVehicle}
-                onSelectVehicle={setSelectedVehicle}
-              />
-            </div>
+            
+            {/* Vehicle Selection + AI Model (Always Expanded) */}
+            <CollapsibleSection id="ride-model" title="Select Your Ride & Model" icon="🏍️" alwaysExpanded={true}>
+              <div className="space-y-4">
+                <VehicleSelector
+                  selectedVehicle={selectedVehicle}
+                  onSelectVehicle={setSelectedVehicle}
+                />
+                
+                {/* AI Model Selector */}
+                <div className="pt-4 border-t border-slate-700">
+                  <label htmlFor="model" className="block text-sm font-medium text-slate-300 mb-2">
+                    AI Model
+                  </label>
+                  <select
+                    id="model"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value as ImageModel)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent text-sm font-medium"
+                  >
+                    <option value={ImageModel.GEMINI_FLASH_IMAGE}>⚡ Gemini Flash (Fast)</option>
+                    <option value={ImageModel.IMAGEN}>🎨 Imagen 4.0 (Max Quality)</option>
+                  </select>
+                </div>
+              </div>
+            </CollapsibleSection>
 
-            {/* Base Prompt Builder */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+            {/* Base Prompt Builder (Always Expanded) */}
+            <CollapsibleSection id="prompt-builder" title="Prompt Builder" icon="✏️" alwaysExpanded={true}>
               <SmartPromptBuilder
                 vehicle={selectedVehicle}
                 onPromptChange={setBasePrompt}
                 initialPrompt={basePrompt}
               />
-            </div>
+            </CollapsibleSection>
 
-            {/* Prompt Modules */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+            {/* Prompt Modules (Default Expanded) */}
+            <CollapsibleSection 
+              id="prompt-modules" 
+              title="Prompt Modules" 
+              icon="🎛️" 
+              defaultExpanded={true}
+              badge={activeModules.length || undefined}
+            >
               <PromptModuleSelector
                 activeModules={activeModules}
                 onModulesChange={setActiveModules}
               />
-            </div>
+            </CollapsibleSection>
 
-            {/* Scene Library */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+            {/* Scene Library (Default Collapsed) */}
+            <CollapsibleSection 
+              id="scene-library" 
+              title="Background Scenes" 
+              icon="🎬"
+              defaultExpanded={false}
+              badge={selectedScene ? '1' : undefined}
+            >
               <SceneLibrarySelector
                 selectedScene={selectedScene}
                 onSceneSelect={setSelectedScene}
               />
-            </div>
+            </CollapsibleSection>
 
-            {/* Negative Prompts */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+            {/* Negative Prompts (Default Collapsed) */}
+            <CollapsibleSection 
+              id="negative-prompts" 
+              title="Negative Prompts" 
+              icon="🚫"
+              defaultExpanded={false}
+              badge={selectedNegatives.length || undefined}
+            >
               <NegativePromptBuilder
                 selectedNegatives={selectedNegatives}
                 onNegativesChange={setSelectedNegatives}
               />
-            </div>
+            </CollapsibleSection>
 
-            {/* Generation Settings */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <span className="text-2xl">⚙️</span> Generation Settings
-              </h3>
-
-              <div>
-                <label htmlFor="model" className="block text-sm font-medium text-slate-300 mb-2">
-                  AI Model
-                </label>
-                <select
-                  id="model"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value as ImageModel)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent text-sm"
-                >
-                  <option value={ImageModel.GEMINI_FLASH_IMAGE}>⚡ Gemini Flash (Fast)</option>
-                  <option value={ImageModel.IMAGEN}>🎨 Imagen 4.0 (Text-to-Image)</option>
-                </select>
-              </div>
-
-              {model === ImageModel.IMAGEN && (
-                <>
-                  <div>
-                    <label htmlFor="aspectRatio" className="block text-sm font-medium text-slate-300 mb-2">
-                      Aspect Ratio
-                    </label>
-                    <select
-                      id="aspectRatio"
-                      value={aspectRatio}
-                      onChange={(e) => setAspectRatio(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
-                    >
-                      <option value="16:9">📺 16:9 (YouTube Standard)</option>
-                      <option value="1:1">⬛ 1:1 (Square)</option>
-                      <option value="9:16">📱 9:16 (Vertical)</option>
-                      <option value="4:3">🖼️ 4:3 (Standard)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Number of Images: <span className="text-canam-orange font-bold">{numberOfImages}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="4"
-                      step="1"
-                      value={numberOfImages}
-                      onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-canam-orange"
-                    />
-                    <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>1</span>
-                      <span>2</span>
-                      <span>3</span>
-                      <span>4</span>
+            {/* Generation Settings (Default Collapsed) */}
+            <CollapsibleSection id="generation-settings" title="Generation Settings" icon="⚙️" defaultExpanded={false}>
+              <div className="space-y-4">
+                {model === ImageModel.IMAGEN && (
+                  <>
+                    <div>
+                      <label htmlFor="aspectRatio" className="block text-sm font-medium text-slate-300 mb-2">
+                        Aspect Ratio
+                      </label>
+                      <select
+                        id="aspectRatio"
+                        value={aspectRatio}
+                        onChange={(e) => setAspectRatio(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
+                      >
+                        <option value="16:9">📺 16:9 (YouTube Standard)</option>
+                        <option value="1:1">⬛ 1:1 (Square)</option>
+                        <option value="9:16">📱 9:16 (Vertical)</option>
+                        <option value="4:3">🖼️ 4:3 (Standard)</option>
+                      </select>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
 
-            {/* Theme Selector */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Number of Images: <span className="text-canam-orange font-bold">{numberOfImages}</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="4"
+                        step="1"
+                        value={numberOfImages}
+                        onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))}
+                        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-canam-orange"
+                      />
+                      <div className="flex justify-between text-xs text-slate-500 mt-1">
+                        <span>1</span>
+                        <span>2</span>
+                        <span>3</span>
+                        <span>4</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </CollapsibleSection>
+
+            {/* Color Theme (Default Collapsed) */}
+            <CollapsibleSection id="color-theme" title="Color Theme" icon="🎨" defaultExpanded={false}>
               <ThemeSelector currentTheme={currentTheme} onThemeChange={setCurrentTheme} />
-            </div>
+            </CollapsibleSection>
 
-            {/* Template Library */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+            {/* Pro Tools (Default Collapsed) */}
+            <CollapsibleSection id="pro-tools" title="Pro Tools" icon="🚀" defaultExpanded={false}>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowVideoExtractor(true)}
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg text-sm"
+                >
+                  📹 Video Frame Extractor
+                </button>
+
+                <button
+                  onClick={() => setShowBrandLibrary(true)}
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-sm"
+                >
+                  🎨 Brand Asset Library
+                </button>
+
+                <button
+                  onClick={() => setShowBatchQueue(true)}
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg text-sm"
+                >
+                  ⚡ Batch Generation Queue
+                </button>
+
+                {generatedImages.length >= 2 && (
+                  <button
+                    onClick={() => setShowABComparison(true)}
+                    className="w-full px-4 py-2.5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg text-sm"
+                  >
+                    ⚔️ A/B Comparison
+                  </button>
+                )}
+              </div>
+            </CollapsibleSection>
+
+            {/* Template Library (Default Collapsed) */}
+            <CollapsibleSection id="templates" title="Templates" icon="💾" defaultExpanded={false}>
               <TemplateLibrary
                 onLoadTemplate={handleLoadTemplate}
                 currentPrompt={basePrompt}
@@ -436,46 +491,8 @@ const App: React.FC = () => {
                 currentSettings={{ aspectRatio, numberOfImages, model }}
                 currentVehicle={selectedVehicle}
               />
-            </div>
-
-            {/* Pro Tools */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl space-y-3">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <span className="text-2xl">🚀</span> Pro Tools
-              </h3>
-
-              <button
-                onClick={() => setShowVideoExtractor(true)}
-                className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg text-sm"
-              >
-                📹 Video Frame Extractor
-              </button>
-
-              <button
-                onClick={() => setShowBrandLibrary(true)}
-                className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-sm"
-              >
-                🎨 Brand Asset Library
-              </button>
-
-              <button
-                onClick={() => setShowBatchQueue(true)}
-                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg text-sm"
-              >
-                ⚡ Batch Generation Queue
-              </button>
-
-              {generatedImages.length >= 2 && (
-                <button
-                  onClick={() => setShowABComparison(true)}
-                  className="w-full px-4 py-2.5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg text-sm"
-                >
-                  ⚔️ A/B Comparison
-                </button>
-              )}
-            </div>
+            </CollapsibleSection>
           </div>
-
           {/* RIGHT COLUMN - Output & Preview */}
           <div className="col-span-7 space-y-4">
             {/* Interactive Prompt Preview */}
