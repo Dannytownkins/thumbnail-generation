@@ -58,3 +58,71 @@ export type PromptComponent = {
   lighting?: string;
   additional?: string;
 };
+
+export type ImageFilters = {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  blur: number;
+  sharpen: number;
+  hue: number;
+};
+
+export type CompositionLayer = {
+  id: string;
+  imageUrl: string;
+  name: string;
+  visible: boolean;
+  opacity: number;
+  blendMode: BlendMode;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+};
+
+export enum BlendMode {
+  NORMAL = 'normal',
+  MULTIPLY = 'multiply',
+  SCREEN = 'screen',
+  OVERLAY = 'overlay',
+  DARKEN = 'darken',
+  LIGHTEN = 'lighten',
+}
+
+export type BrandAsset = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  type: 'logo' | 'watermark' | 'sticker' | 'other';
+  createdAt: number;
+};
+
+export type ExportFormat = {
+  name: string;
+  width: number;
+  height: number;
+  platform: string;
+};
+
+export type BatchJob = {
+  id: string;
+  prompt: string;
+  vehicle?: VehicleType;
+  model: ImageModel;
+  settings: GenerationSettings;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  createdAt: number;
+  completedAt?: number;
+  result?: GeneratedImage[];
+  error?: string;
+};
+
+export type VideoFrame = {
+  id: string;
+  dataUrl: string;
+  timestamp: number;
+  index: number;
+};

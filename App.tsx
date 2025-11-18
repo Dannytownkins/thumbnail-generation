@@ -9,6 +9,13 @@ import SmartPromptBuilder from './components/SmartPromptBuilder';
 import TemplateLibrary from './components/TemplateLibrary';
 import GenerationHistory from './components/GenerationHistory';
 import TextOverlayEditor from './components/TextOverlayEditor';
+import ImageFilterEditor from './components/ImageFilterEditor';
+import VideoFrameExtractor from './components/VideoFrameExtractor';
+import BrandAssetLibrary from './components/BrandAssetLibrary';
+import MultiFormatExport from './components/MultiFormatExport';
+import BatchGenerationQueue from './components/BatchGenerationQueue';
+import ABComparison from './components/ABComparison';
+import ColorPaletteExtractor from './components/ColorPaletteExtractor';
 
 const Header: React.FC = () => (
   <header className="relative overflow-hidden">
@@ -20,11 +27,12 @@ const Header: React.FC = () => (
             SlingMods
           </span>
           <span className="text-white"> Thumbnail AI</span>
+          <span className="ml-4 text-2xl bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">PRO</span>
         </h1>
         <p className="text-lg text-slate-300 font-medium">
           Professional thumbnail generation for Can-Am & Polaris content
         </p>
-        <div className="mt-4 flex gap-4 text-sm text-slate-400">
+        <div className="mt-4 flex gap-4 text-sm text-slate-400 flex-wrap">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
             Gemini AI Powered
@@ -37,17 +45,37 @@ const Header: React.FC = () => (
             <span className="w-2 h-2 bg-canam-orange rounded-full animate-pulse"></span>
             Pro Features
           </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
+            Batch Generation
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>
+            Multi-Format Export
+          </span>
         </div>
       </div>
     </div>
   </header>
 );
 
-const ImageDisplay: React.FC<{
+interface ImageDisplayProps {
   isLoading: boolean;
   generatedImages: GeneratedImage[];
   onAddText: (imageUrl: string, prompt?: string) => void;
-}> = ({ isLoading, generatedImages, onAddText }) => {
+  onFilter: (imageUrl: string) => void;
+  onExport: (imageUrl: string) => void;
+  onExtractColors: (imageUrl: string) => void;
+}
+
+const ImageDisplay: React.FC<ImageDisplayProps> = ({
+  isLoading,
+  generatedImages,
+  onAddText,
+  onFilter,
+  onExport,
+  onExtractColors,
+}) => {
   return (
     <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6 flex items-center justify-center min-h-[600px] relative overflow-hidden">
       {/* Animated background */}
@@ -68,23 +96,45 @@ const ImageDisplay: React.FC<{
                   alt={`Generated Thumbnail ${image.id}`}
                   className="w-full aspect-video object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="absolute bottom-0 left-0 right-0 p-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                  <button
-                    onClick={() => {
-                      const filename = generateFilename(image.vehicle, image.prompt);
-                      downloadImage(image.url, filename);
-                    }}
-                    className="flex-1 bg-gradient-to-r from-electric-blue to-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:from-electric-blue hover:to-cyan-700 transition-all shadow-lg"
-                  >
-                    💾 Download
-                  </button>
-                  <button
-                    onClick={() => onAddText(image.url, image.prompt)}
-                    className="flex-1 bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-4 rounded-lg hover:from-canam-orange hover:to-red-700 transition-all shadow-lg"
-                  >
-                    ✏️ Add Text
-                  </button>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <button
+                      onClick={() => {
+                        const filename = generateFilename(image.vehicle, image.prompt);
+                        downloadImage(image.url, filename);
+                      }}
+                      className="bg-gradient-to-r from-electric-blue to-cyan-600 text-white font-bold py-2 px-3 rounded-lg hover:from-electric-blue hover:to-cyan-700 transition-all shadow-lg text-sm"
+                    >
+                      💾 Download
+                    </button>
+                    <button
+                      onClick={() => onAddText(image.url, image.prompt)}
+                      className="bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-3 rounded-lg hover:from-canam-orange hover:to-red-700 transition-all shadow-lg text-sm"
+                    >
+                      ✏️ Add Text
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => onFilter(image.url)}
+                      className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-purple-600 transition-all text-xs"
+                    >
+                      🎨 Filters
+                    </button>
+                    <button
+                      onClick={() => onExport(image.url)}
+                      className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-green-600 transition-all text-xs"
+                    >
+                      📱 Export
+                    </button>
+                    <button
+                      onClick={() => onExtractColors(image.url)}
+                      className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-pink-600 transition-all text-xs"
+                    >
+                      🎨 Colors
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -125,7 +175,16 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>('16:9');
   const [numberOfImages, setNumberOfImages] = useState<number>(2);
+
+  // Modal states
   const [textEditorImage, setTextEditorImage] = useState<{ url: string; prompt?: string } | null>(null);
+  const [filterEditorImage, setFilterEditorImage] = useState<string | null>(null);
+  const [exportImage, setExportImage] = useState<string | null>(null);
+  const [colorExtractorImage, setColorExtractorImage] = useState<string | null>(null);
+  const [showVideoExtractor, setShowVideoExtractor] = useState(false);
+  const [showBrandLibrary, setShowBrandLibrary] = useState(false);
+  const [showBatchQueue, setShowBatchQueue] = useState(false);
+  const [showABComparison, setShowABComparison] = useState(false);
 
   const isGenerateDisabled = !prompt.trim() || isLoading;
 
@@ -178,6 +237,13 @@ const App: React.FC = () => {
 
   const handleLoadPromptFromHistory = useCallback((historyPrompt: string) => {
     setPrompt(historyPrompt);
+  }, []);
+
+  const handleVideoFrameSelect = useCallback((frameDataUrl: string) => {
+    // Could set as reference image or use in prompt builder
+    setShowVideoExtractor(false);
+    // For now, we'll open it in the filter editor
+    setFilterEditorImage(frameDataUrl);
   }, []);
 
   return (
@@ -257,6 +323,43 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </>
+              )}
+            </div>
+
+            {/* Pro Tools */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl space-y-3">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">🚀</span> Pro Tools
+              </h3>
+
+              <button
+                onClick={() => setShowVideoExtractor(true)}
+                className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+              >
+                📹 Video Frame Extractor
+              </button>
+
+              <button
+                onClick={() => setShowBrandLibrary(true)}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg"
+              >
+                🎨 Brand Asset Library
+              </button>
+
+              <button
+                onClick={() => setShowBatchQueue(true)}
+                className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg"
+              >
+                ⚡ Batch Generation Queue
+              </button>
+
+              {generatedImages.length >= 2 && (
+                <button
+                  onClick={() => setShowABComparison(true)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg"
+                >
+                  ⚔️ A/B Comparison
+                </button>
               )}
             </div>
 
@@ -350,17 +453,71 @@ const App: React.FC = () => {
               isLoading={isLoading}
               generatedImages={generatedImages}
               onAddText={(url, promptText) => setTextEditorImage({ url, prompt: promptText })}
+              onFilter={setFilterEditorImage}
+              onExport={setExportImage}
+              onExtractColors={setColorExtractorImage}
             />
           </div>
         </div>
       </main>
 
-      {/* Text Overlay Editor Modal */}
+      {/* Modals */}
       {textEditorImage && (
         <TextOverlayEditor
           imageUrl={textEditorImage.url}
           originalPrompt={textEditorImage.prompt}
           onClose={() => setTextEditorImage(null)}
+        />
+      )}
+
+      {filterEditorImage && (
+        <ImageFilterEditor
+          imageUrl={filterEditorImage}
+          onClose={() => setFilterEditorImage(null)}
+        />
+      )}
+
+      {exportImage && (
+        <MultiFormatExport
+          imageUrl={exportImage}
+          onClose={() => setExportImage(null)}
+          imageName="thumbnail"
+        />
+      )}
+
+      {colorExtractorImage && (
+        <ColorPaletteExtractor
+          imageUrl={colorExtractorImage}
+          onClose={() => setColorExtractorImage(null)}
+        />
+      )}
+
+      {showVideoExtractor && (
+        <VideoFrameExtractor
+          onFrameSelect={handleVideoFrameSelect}
+          onClose={() => setShowVideoExtractor(false)}
+        />
+      )}
+
+      {showBrandLibrary && (
+        <BrandAssetLibrary
+          isOpen={showBrandLibrary}
+          onClose={() => setShowBrandLibrary(false)}
+        />
+      )}
+
+      {showBatchQueue && (
+        <BatchGenerationQueue
+          isOpen={showBatchQueue}
+          onClose={() => setShowBatchQueue(false)}
+          defaultSettings={{ aspectRatio, numberOfImages, model }}
+        />
+      )}
+
+      {showABComparison && (
+        <ABComparison
+          images={generatedImages}
+          onClose={() => setShowABComparison(false)}
         />
       )}
     </div>
