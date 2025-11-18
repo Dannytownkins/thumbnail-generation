@@ -30,6 +30,7 @@
             animation: {
               'gradient': 'gradient 8s linear infinite',
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'slide-in-right': 'slide-in-right 0.3s ease-out',
             },
             keyframes: {
               gradient: {
@@ -40,6 +41,16 @@
                 '50%': {
                   'background-size': '200% 200%',
                   'background-position': 'right center'
+                },
+              },
+              'slide-in-right': {
+                '0%': {
+                  transform: 'translateX(100%)',
+                  opacity: '0',
+                },
+                '100%': {
+                  transform: 'translateX(0)',
+                  opacity: '1',
                 },
               },
             },

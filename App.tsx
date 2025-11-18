@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { ImageModel, GeneratedImage, VehicleType, Template } from './types';
 import { generateThumbnail } from './services/geminiService';
-import { saveToHistory } from './utils/storage';
+import { saveToHistory, saveLastRide, saveLastModel, getLastRide, getLastModel } from './utils/storage';
 import { downloadImage, generateFilename } from './utils/download';
 import { buildModularPrompt } from './utils/promptModules';
 import { SCENE_LIBRARY } from './utils/sceneLibrary';
+import { useToast } from './components/ToastContainer';
 import Loader from './components/Loader';
 import VehicleSelector from './components/VehicleSelector';
 import SmartPromptBuilder from './components/SmartPromptBuilder';
@@ -158,6 +159,8 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
 };
 
 const App: React.FC = () => {
+  const { showToast } = useToast();
+
   const [basePrompt, setBasePrompt] = useState<string>('');
   const [model, setModel] = useState<ImageModel>(ImageModel.GEMINI_FLASH_IMAGE);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
@@ -184,13 +187,33 @@ const App: React.FC = () => {
   const [showBatchQueue, setShowBatchQueue] = useState(false);
   const [showABComparison, setShowABComparison] = useState(false);
 
-  // Load saved theme on mount
+  // Load saved preferences on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('selectedTheme');
     if (savedTheme) {
       setCurrentTheme(savedTheme);
     }
+    const lastRide = getLastRide();
+    if (lastRide) {
+      setSelectedVehicle(lastRide as VehicleType);
+    }
+
+    const lastModel = getLastModel();
+    if (lastModel) {
+      setModel(lastModel as ImageModel);
+    }
   }, []);
+
+  // Persist ride and model selections
+  useEffect(() => {
+    if (selectedVehicle) {
+      saveLastRide(selectedVehicle);
+    }
+  }, [selectedVehicle]);
+
+  useEffect(() => {
+    saveLastModel(model);
+  }, [model]);
 
   // Build the final prompt
   const buildFinalPrompt = useCallback(() => {
@@ -247,11 +270,25 @@ const App: React.FC = () => {
 
       setGeneratedImages(images);
 
-      // Save to history
-      images.forEach((img) => saveToHistory(img));
+      // Save to history (async with error handling)
+      for (const img of images) {
+        try {
+          await saveToHistory(img);
+        } catch (historyError) {
+          console.warn('Failed to save to history:', historyError);
+          showToast(
+            historyError instanceof Error ? historyError.message : 'Failed to save to history',
+            'warning'
+          );
+        }
+      }
+
+      showToast(`Generated ${images.length} thumbnail${images.length > 1 ? 's' : ''} successfully!`, 'success', 3000);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }

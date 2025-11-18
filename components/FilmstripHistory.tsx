@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { GeneratedImage } from '../types';
-import { getHistory, clearHistory } from '../utils/storage';
+import { getHistory, clearHistory, getHistoryStorageInfo, type HistoryItem } from '../utils/storage';
 import { downloadImage, generateFilename } from '../utils/download';
 
 interface FilmstripHistoryProps {
   onImageSelect: (imageUrl: string) => void;
+  onRefresh?: () => void;
 }
 
-const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) => {
-  const [history, setHistory] = useState<GeneratedImage[]>([]);
+const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect, onRefresh }) => {
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [storageInfo, setStorageInfo] = useState({ count: 0, maxCount: 20 });
 
   useEffect(() => {
     loadHistory();
@@ -18,6 +19,8 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
   const loadHistory = () => {
     const historyData = getHistory();
     setHistory(historyData);
+    const info = getHistoryStorageInfo();
+    setStorageInfo({ count: info.count, maxCount: info.maxCount });
   };
 
   const handleClearHistory = () => {
@@ -25,12 +28,14 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
       clearHistory();
       setHistory([]);
       setSelectedIndex(null);
+      setStorageInfo({ count: 0, maxCount: 20 });
+      if (onRefresh) onRefresh();
     }
   };
 
   const handleImageClick = (index: number) => {
     setSelectedIndex(index);
-    onImageSelect(history[index].url);
+    onImageSelect(history[index].thumbDataUrl);
   };
 
   const selectedImage = selectedIndex !== null ? history[selectedIndex] : null;
@@ -40,8 +45,8 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
           <span className="text-2xl">🎞️</span> Filmstrip History
-          <span className="ml-2 px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">
-            {history.length} images
+          <span className="ml-2 px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full font-mono">
+            {storageInfo.count} / {storageInfo.maxCount}
           </span>
         </h3>
         {history.length > 0 && (
@@ -68,6 +73,7 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
                 <button
                   key={image.id}
                   onClick={() => handleImageClick(index)}
+                  title={image.prompt?.substring(0, 100) || 'Generated image'}
                   className={`relative flex-shrink-0 group transition-all ${
                     selectedIndex === index
                       ? 'ring-2 ring-canam-orange ring-offset-2 ring-offset-slate-900 scale-105'
@@ -76,7 +82,7 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
                   style={{ width: '120px' }}
                 >
                   <img
-                    src={image.url}
+                    src={image.thumbDataUrl}
                     alt={`History ${index}`}
                     className="w-full aspect-video object-cover rounded border-2 border-slate-700 group-hover:border-slate-500"
                   />
@@ -114,13 +120,13 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
                     Image #{history.length - selectedIndex!}
                   </h4>
                   <p className="text-xs text-slate-400">
-                    {new Date(selectedImage.timestamp).toLocaleString()}
+                    {new Date(selectedImage.createdAt).toLocaleString()}
                   </p>
                 </div>
                 <button
                   onClick={() => {
                     const filename = generateFilename(selectedImage.vehicle, selectedImage.prompt);
-                    downloadImage(selectedImage.url, filename);
+                    downloadImage(selectedImage.thumbDataUrl, filename);
                   }}
                   className="px-3 py-1.5 bg-gradient-to-r from-electric-blue to-cyan-600 text-white text-xs font-medium rounded hover:from-electric-blue hover:to-cyan-700 transition-all"
                 >
@@ -148,8 +154,12 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
 
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <span>Model: {selectedImage.model}</span>
-                <span>•</span>
-                <span>Ratio: {selectedImage.settings?.aspectRatio || 'N/A'}</span>
+                {selectedImage.settings?.aspectRatio && (
+                  <>
+                    <span>•</span>
+                    <span>Ratio: {selectedImage.settings.aspectRatio}</span>
+                  </>
+                )}
               </div>
             </div>
           )}
