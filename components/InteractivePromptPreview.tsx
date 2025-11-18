@@ -18,6 +18,14 @@ const InteractivePromptPreview: React.FC<InteractivePromptPreviewProps> = ({
   vehicle,
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(fullPromptText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Build the full prompt
   const buildFullPrompt = () => {
@@ -93,24 +101,37 @@ const InteractivePromptPreview: React.FC<InteractivePromptPreviewProps> = ({
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
           <span className="text-lg">🔍</span> Prompt Preview
         </h3>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs text-slate-400 hover:text-white transition-colors"
-        >
-          {isExpanded ? 'Collapse' : 'Expand'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={copyToClipboard}
+            disabled={!fullPromptText}
+            className={`px-3 py-1 text-xs font-medium rounded transition-all ${
+              copied
+                ? 'bg-green-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed'
+            }`}
+          >
+            {copied ? '✓ Copied!' : '📋 Copy'}
+          </button>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-xs text-slate-400 hover:text-white transition-colors"
+          >
+            {isExpanded ? 'Collapse' : 'Expand'}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
       <div className="flex gap-4 text-xs text-slate-400">
         <div>
-          <span className="font-medium">{wordCount}</span> words
+          <span className="font-medium text-white">{wordCount}</span> words
         </div>
         <div>
-          <span className="font-medium">{characterCount}</span> characters
+          <span className="font-medium text-white">{characterCount}</span> characters
         </div>
         <div>
-          <span className="font-medium">{promptParts.length}</span> components
+          <span className="font-medium text-white">{promptParts.length}</span> components
         </div>
       </div>
 

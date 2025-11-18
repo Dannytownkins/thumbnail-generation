@@ -25,6 +25,7 @@ import ThemeSelector from './components/ThemeSelector';
 import FilmstripHistory from './components/FilmstripHistory';
 import ZoomControls from './components/ZoomControls';
 import StickyGenerateBar from './components/StickyGenerateBar';
+import CollapsibleSection from './components/CollapsibleSection';
 import InteractivePromptPreview from './components/InteractivePromptPreview';
 
 const Header: React.FC = () => (
