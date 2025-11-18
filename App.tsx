@@ -324,6 +324,12 @@ const App: React.FC = () => {
   const handleGenerate = useCallback(async () => {
     if (isGenerateDisabled) return;
 
+    // Prevent concurrent generations
+    if (isLoading) {
+      showToast('Generation already in progress. Please wait...', 'warning', 2000);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setGeneratedImages([]);
@@ -372,9 +378,15 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [finalPrompt, model, aspectRatio, numberOfImages, selectedVehicle, isGenerateDisabled]);
+  }, [finalPrompt, model, aspectRatio, numberOfImages, selectedVehicle, isGenerateDisabled, isLoading, showToast]);
 
   const handleRegenerate = useCallback(async (image: GeneratedImage) => {
+    // Prevent concurrent generations
+    if (isLoading) {
+      showToast('Generation already in progress. Please wait...', 'warning', 2000);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -416,7 +428,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isLoading, showToast]);
 
   const handleLoadTemplate = useCallback((template: Template) => {
     setBasePrompt(template.prompt);
