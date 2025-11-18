@@ -5,8 +5,71 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SlingMods Thumbnail Generator</title>
+    <title>SlingMods Thumbnail AI - Pro Edition</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Bebas+Neue&family=Anton&family=Oswald:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'canam-orange': '#ff6b00',
+              'electric-blue': '#00d4ff',
+            },
+            fontFamily: {
+              'sans': ['Inter', 'system-ui', 'sans-serif'],
+              'display': ['Anton', 'Impact', 'sans-serif'],
+              'bebas': ['Bebas Neue', 'cursive'],
+              'oswald': ['Oswald', 'sans-serif'],
+            },
+            animation: {
+              'gradient': 'gradient 8s linear infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            },
+            keyframes: {
+              gradient: {
+                '0%, 100%': {
+                  'background-size': '200% 200%',
+                  'background-position': 'left center'
+                },
+                '50%': {
+                  'background-size': '200% 200%',
+                  'background-position': 'right center'
+                },
+              },
+            },
+          }
+        }
+      }
+    </script>
+    <style>
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #ff6b00 #1e293b;
+      }
+      *::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      *::-webkit-scrollbar-track {
+        background: #1e293b;
+      }
+      *::-webkit-scrollbar-thumb {
+        background: #ff6b00;
+        border-radius: 4px;
+      }
+      *::-webkit-scrollbar-thumb:hover {
+        background: #ff8533;
+      }
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -18,7 +81,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-900">
+  <body class="bg-slate-950">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
