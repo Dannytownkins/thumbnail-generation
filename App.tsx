@@ -168,7 +168,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
 
 const App: React.FC = () => {
   const [prompt, setPrompt] = useState<string>('');
-  const [model, setModel] = useState<ImageModel>(ImageModel.IMAGEN);
+  const [model, setModel] = useState<ImageModel>(ImageModel.GEMINI_FLASH_IMAGE);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -278,8 +278,8 @@ const App: React.FC = () => {
                   onChange={(e) => setModel(e.target.value as ImageModel)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent"
                 >
-                  <option value={ImageModel.IMAGEN}>🎨 Imagen 4.0 (Text-to-Image)</option>
                   <option value={ImageModel.GEMINI_FLASH_IMAGE}>⚡ Gemini Flash (Fast)</option>
+                  <option value={ImageModel.IMAGEN}>🎨 Imagen 4.0 (Text-to-Image)</option>
                 </select>
               </div>
 
