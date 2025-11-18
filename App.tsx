@@ -56,6 +56,7 @@ interface ImageDisplayProps {
   onFilter: (imageUrl: string) => void;
   onExport: (imageUrl: string) => void;
   onExtractColors: (imageUrl: string) => void;
+  onRegenerate: (image: GeneratedImage) => void;
 }
 
 const ImageDisplay: React.FC<ImageDisplayProps> = ({
@@ -66,6 +67,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   onFilter,
   onExport,
   onExtractColors,
+  onRegenerate,
 }) => {
   const scaleMultiplier = zoomLevel / 100;
 
@@ -91,41 +93,60 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                  <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="grid grid-cols-3 gap-2 mb-2">
                     <button
                       onClick={() => {
                         const filename = generateFilename(image.vehicle, image.prompt);
                         downloadImage(image.url, filename);
                       }}
-                      className="bg-gradient-to-r from-electric-blue to-cyan-600 text-white font-bold py-2 px-3 rounded-lg hover:from-electric-blue hover:to-cyan-700 transition-all shadow-lg text-sm"
+                      className="bg-gradient-to-r from-electric-blue to-cyan-600 text-white font-bold py-2 px-2 rounded-lg hover:from-electric-blue hover:to-cyan-700 transition-all shadow-lg text-xs"
                     >
                       💾 Download
                     </button>
                     <button
                       onClick={() => onAddText(image.url, image.prompt)}
-                      className="bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-3 rounded-lg hover:from-canam-orange hover:to-red-700 transition-all shadow-lg text-sm"
+                      className="bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-2 rounded-lg hover:from-canam-orange hover:to-red-700 transition-all shadow-lg text-xs"
                     >
-                      ✏️ Add Text
+                      ✏️ Text
+                    </button>
+                    <button
+                      onClick={() => onRegenerate(image)}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2 px-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-xs"
+                      title="Re-generate with same prompt"
+                    >
+                      🔄 Re-Gen
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     <button
                       onClick={() => onFilter(image.url)}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-purple-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-purple-600 transition-all text-xs"
+                      title="Apply filters"
                     >
-                      🎨 Filters
+                      🎨
                     </button>
                     <button
                       onClick={() => onExport(image.url)}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-green-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-green-600 transition-all text-xs"
+                      title="Export to formats"
                     >
-                      📱 Export
+                      📱
                     </button>
                     <button
                       onClick={() => onExtractColors(image.url)}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-pink-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-pink-600 transition-all text-xs"
+                      title="Extract colors"
                     >
-                      🎨 Colors
+                      🎨
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(image.prompt || '');
+                      }}
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-blue-600 transition-all text-xs"
+                      title="Copy prompt"
+                    >
+                      📋
                     </button>
                   </div>
                 </div>
@@ -294,6 +315,50 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, [finalPrompt, model, aspectRatio, numberOfImages, selectedVehicle, isGenerateDisabled]);
+
+  const handleRegenerate = useCallback(async (image: GeneratedImage) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const resultUrls = await generateThumbnail(image.prompt, image.model, {
+        aspectRatio: image.settings?.aspectRatio || '16:9',
+        numberOfImages: 1, // Always regenerate as single image
+      });
+
+      const newImage: GeneratedImage = {
+        id: `${Date.now()}-regen`,
+        url: resultUrls[0],
+        model: image.model,
+        prompt: image.prompt,
+        vehicle: image.vehicle,
+        timestamp: Date.now(),
+        settings: image.settings,
+      };
+
+      setGeneratedImages((prev) => [newImage, ...prev]);
+
+      // Save to history
+      try {
+        await saveToHistory(newImage);
+      } catch (historyError) {
+        console.warn('Failed to save to history:', historyError);
+        showToast(
+          historyError instanceof Error ? historyError.message : 'Failed to save to history',
+          'warning'
+        );
+      }
+
+      showToast('Re-generated thumbnail successfully!', 'success', 3000);
+    } catch (err) {
+      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Re-generation failed.';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   const handleLoadTemplate = useCallback((template: Template) => {
     setBasePrompt(template.prompt);
@@ -530,6 +595,7 @@ const App: React.FC = () => {
               onFilter={setFilterEditorImage}
               onExport={setExportImage}
               onExtractColors={setColorExtractorImage}
+              onRegenerate={handleRegenerate}
             />
 
             {/* Filmstrip History */}
