@@ -1,13 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ImageModel, GeneratedImage, VehicleType, Template } from './types';
 import { generateThumbnail } from './services/geminiService';
 import { saveToHistory } from './utils/storage';
 import { downloadImage, generateFilename } from './utils/download';
+import { buildModularPrompt } from './utils/promptModules';
+import { SCENE_LIBRARY } from './utils/sceneLibrary';
 import Loader from './components/Loader';
 import VehicleSelector from './components/VehicleSelector';
 import SmartPromptBuilder from './components/SmartPromptBuilder';
 import TemplateLibrary from './components/TemplateLibrary';
-import GenerationHistory from './components/GenerationHistory';
 import TextOverlayEditor from './components/TextOverlayEditor';
 import ImageFilterEditor from './components/ImageFilterEditor';
 import VideoFrameExtractor from './components/VideoFrameExtractor';
@@ -16,44 +17,30 @@ import MultiFormatExport from './components/MultiFormatExport';
 import BatchGenerationQueue from './components/BatchGenerationQueue';
 import ABComparison from './components/ABComparison';
 import ColorPaletteExtractor from './components/ColorPaletteExtractor';
+import PromptModuleSelector from './components/PromptModuleSelector';
+import SceneLibrarySelector from './components/SceneLibrarySelector';
+import NegativePromptBuilder from './components/NegativePromptBuilder';
+import ThemeSelector from './components/ThemeSelector';
+import FilmstripHistory from './components/FilmstripHistory';
+import ZoomControls from './components/ZoomControls';
+import StickyGenerateBar from './components/StickyGenerateBar';
+import InteractivePromptPreview from './components/InteractivePromptPreview';
 
 const Header: React.FC = () => (
   <header className="relative overflow-hidden">
     <div className="absolute inset-0 bg-gradient-to-r from-canam-orange via-red-600 to-canam-orange animate-gradient opacity-20"></div>
-    <div className="relative py-8 px-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-5xl md:text-6xl font-display font-bold tracking-tight text-white mb-2">
+    <div className="relative py-6 px-8">
+      <div className="max-w-[2000px] mx-auto">
+        <h1 className="text-4xl md:text-5xl font-display font-bold tracking-tight text-white mb-1">
           <span className="bg-gradient-to-r from-canam-orange to-electric-blue bg-clip-text text-transparent">
             SlingMods
           </span>
           <span className="text-white"> Thumbnail AI</span>
-          <span className="ml-4 text-2xl bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">PRO</span>
+          <span className="ml-3 text-xl bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">PRO</span>
         </h1>
-        <p className="text-lg text-slate-300 font-medium">
-          Professional thumbnail generation for Can-Am & Polaris content
+        <p className="text-sm text-slate-300 font-medium">
+          Professional thumbnail generation with modular prompts & AI-powered tools
         </p>
-        <div className="mt-4 flex gap-4 text-sm text-slate-400 flex-wrap">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            Gemini AI Powered
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 bg-electric-blue rounded-full animate-pulse"></span>
-            High Resolution 16:9
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 bg-canam-orange rounded-full animate-pulse"></span>
-            Pro Features
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>
-            Batch Generation
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>
-            Multi-Format Export
-          </span>
-        </div>
       </div>
     </div>
   </header>
@@ -62,6 +49,7 @@ const Header: React.FC = () => (
 interface ImageDisplayProps {
   isLoading: boolean;
   generatedImages: GeneratedImage[];
+  zoomLevel: number;
   onAddText: (imageUrl: string, prompt?: string) => void;
   onFilter: (imageUrl: string) => void;
   onExport: (imageUrl: string) => void;
@@ -71,13 +59,16 @@ interface ImageDisplayProps {
 const ImageDisplay: React.FC<ImageDisplayProps> = ({
   isLoading,
   generatedImages,
+  zoomLevel,
   onAddText,
   onFilter,
   onExport,
   onExtractColors,
 }) => {
+  const scaleMultiplier = zoomLevel / 100;
+
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6 flex items-center justify-center min-h-[600px] relative overflow-hidden">
+    <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6 flex items-center justify-center min-h-[600px] relative overflow-auto">
       {/* Animated background */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute top-0 left-0 w-96 h-96 bg-canam-orange rounded-full filter blur-3xl animate-pulse-slow"></div>
@@ -88,7 +79,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
         {isLoading ? (
           <Loader />
         ) : generatedImages.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full" style={{ transform: `scale(${scaleMultiplier})`, transformOrigin: 'top center' }}>
             {generatedImages.map((image) => (
               <div key={image.id} className="group relative bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700 hover:border-canam-orange transition-all shadow-2xl hover:shadow-canam-orange/20">
                 <img
@@ -167,7 +158,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
 };
 
 const App: React.FC = () => {
-  const [prompt, setPrompt] = useState<string>('');
+  const [basePrompt, setBasePrompt] = useState<string>('');
   const [model, setModel] = useState<ImageModel>(ImageModel.GEMINI_FLASH_IMAGE);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -175,6 +166,13 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>('16:9');
   const [numberOfImages, setNumberOfImages] = useState<number>(2);
+
+  // New modular prompt states
+  const [activeModules, setActiveModules] = useState<string[]>([]);
+  const [selectedScene, setSelectedScene] = useState<string | null>(null);
+  const [selectedNegatives, setSelectedNegatives] = useState<string[]>([]);
+  const [currentTheme, setCurrentTheme] = useState<string>('carbon');
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   // Modal states
   const [textEditorImage, setTextEditorImage] = useState<{ url: string; prompt?: string } | null>(null);
@@ -186,7 +184,39 @@ const App: React.FC = () => {
   const [showBatchQueue, setShowBatchQueue] = useState(false);
   const [showABComparison, setShowABComparison] = useState(false);
 
-  const isGenerateDisabled = !prompt.trim() || isLoading;
+  // Load saved theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('selectedTheme');
+    if (savedTheme) {
+      setCurrentTheme(savedTheme);
+    }
+  }, []);
+
+  // Build the final prompt
+  const buildFinalPrompt = useCallback(() => {
+    let prompt = basePrompt;
+
+    // Add vehicle
+    if (selectedVehicle) {
+      prompt = `${selectedVehicle} ${prompt}`;
+    }
+
+    // Add scene
+    if (selectedScene) {
+      const scene = SCENE_LIBRARY.find((s) => s.id === selectedScene);
+      if (scene) {
+        prompt = `${prompt}, ${scene.keywords}`;
+      }
+    }
+
+    // Add modules
+    const { enhancedPrompt } = buildModularPrompt(prompt, activeModules);
+
+    return enhancedPrompt;
+  }, [basePrompt, selectedVehicle, selectedScene, activeModules]);
+
+  const finalPrompt = buildFinalPrompt();
+  const isGenerateDisabled = !finalPrompt.trim() || isLoading;
 
   const handleGenerate = useCallback(async () => {
     if (isGenerateDisabled) return;
@@ -196,7 +226,7 @@ const App: React.FC = () => {
     setGeneratedImages([]);
 
     try {
-      const resultUrls = await generateThumbnail(prompt, model, {
+      const resultUrls = await generateThumbnail(finalPrompt, model, {
         aspectRatio,
         numberOfImages,
       });
@@ -205,7 +235,7 @@ const App: React.FC = () => {
         id: `${Date.now()}-${index}`,
         url,
         model,
-        prompt,
+        prompt: finalPrompt,
         vehicle: selectedVehicle || undefined,
         timestamp: Date.now(),
         settings: {
@@ -225,45 +255,73 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [prompt, model, aspectRatio, numberOfImages, selectedVehicle, isGenerateDisabled]);
+  }, [finalPrompt, model, aspectRatio, numberOfImages, selectedVehicle, isGenerateDisabled]);
 
   const handleLoadTemplate = useCallback((template: Template) => {
-    setPrompt(template.prompt);
+    setBasePrompt(template.prompt);
     setModel(template.model);
     setSelectedVehicle(template.vehicle || null);
     setAspectRatio(template.settings.aspectRatio);
     setNumberOfImages(template.settings.numberOfImages);
   }, []);
 
-  const handleLoadPromptFromHistory = useCallback((historyPrompt: string) => {
-    setPrompt(historyPrompt);
-  }, []);
-
   const handleVideoFrameSelect = useCallback((frameDataUrl: string) => {
-    // Could set as reference image or use in prompt builder
     setShowVideoExtractor(false);
-    // For now, we'll open it in the filter editor
     setFilterEditorImage(frameDataUrl);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 pb-32">
       <Header />
 
-      <main className="max-w-[1800px] mx-auto px-8 py-8">
-        <div className="grid grid-cols-12 gap-8">
-          {/* Left Control Panel */}
-          <div className="col-span-4 space-y-6">
+      <main className="max-w-[2000px] mx-auto px-6 py-6">
+        {/* True 2-Column Layout */}
+        <div className="grid grid-cols-12 gap-6">
+          {/* LEFT COLUMN - Input & Controls */}
+          <div className="col-span-5 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
             {/* Vehicle Selection */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
               <VehicleSelector
                 selectedVehicle={selectedVehicle}
                 onSelectVehicle={setSelectedVehicle}
               />
             </div>
 
-            {/* Model & Settings */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl space-y-4">
+            {/* Base Prompt Builder */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <SmartPromptBuilder
+                vehicle={selectedVehicle}
+                onPromptChange={setBasePrompt}
+                initialPrompt={basePrompt}
+              />
+            </div>
+
+            {/* Prompt Modules */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <PromptModuleSelector
+                activeModules={activeModules}
+                onModulesChange={setActiveModules}
+              />
+            </div>
+
+            {/* Scene Library */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <SceneLibrarySelector
+                selectedScene={selectedScene}
+                onSceneSelect={setSelectedScene}
+              />
+            </div>
+
+            {/* Negative Prompts */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <NegativePromptBuilder
+                selectedNegatives={selectedNegatives}
+                onNegativesChange={setSelectedNegatives}
+              />
+            </div>
+
+            {/* Generation Settings */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <span className="text-2xl">⚙️</span> Generation Settings
               </h3>
@@ -276,7 +334,7 @@ const App: React.FC = () => {
                   id="model"
                   value={model}
                   onChange={(e) => setModel(e.target.value as ImageModel)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent text-sm"
                 >
                   <option value={ImageModel.GEMINI_FLASH_IMAGE}>⚡ Gemini Flash (Fast)</option>
                   <option value={ImageModel.IMAGEN}>🎨 Imagen 4.0 (Text-to-Image)</option>
@@ -293,7 +351,7 @@ const App: React.FC = () => {
                       id="aspectRatio"
                       value={aspectRatio}
                       onChange={(e) => setAspectRatio(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
                     >
                       <option value="16:9">📺 16:9 (YouTube Standard)</option>
                       <option value="1:1">⬛ 1:1 (Square)</option>
@@ -313,7 +371,7 @@ const App: React.FC = () => {
                       step="1"
                       value={numberOfImages}
                       onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))}
-                      className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-canam-orange"
+                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-canam-orange"
                     />
                     <div className="flex justify-between text-xs text-slate-500 mt-1">
                       <span>1</span>
@@ -326,29 +384,45 @@ const App: React.FC = () => {
               )}
             </div>
 
+            {/* Theme Selector */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <ThemeSelector currentTheme={currentTheme} onThemeChange={setCurrentTheme} />
+            </div>
+
+            {/* Template Library */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <TemplateLibrary
+                onLoadTemplate={handleLoadTemplate}
+                currentPrompt={basePrompt}
+                currentModel={model}
+                currentSettings={{ aspectRatio, numberOfImages, model }}
+                currentVehicle={selectedVehicle}
+              />
+            </div>
+
             {/* Pro Tools */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl space-y-3">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl space-y-3">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <span className="text-2xl">🚀</span> Pro Tools
               </h3>
 
               <button
                 onClick={() => setShowVideoExtractor(true)}
-                className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg text-sm"
               >
                 📹 Video Frame Extractor
               </button>
 
               <button
                 onClick={() => setShowBrandLibrary(true)}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg"
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-sm"
               >
                 🎨 Brand Asset Library
               </button>
 
               <button
                 onClick={() => setShowBatchQueue(true)}
-                className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg"
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg text-sm"
               >
                 ⚡ Batch Generation Queue
               </button>
@@ -356,110 +430,71 @@ const App: React.FC = () => {
               {generatedImages.length >= 2 && (
                 <button
                   onClick={() => setShowABComparison(true)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg"
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg text-sm"
                 >
                   ⚔️ A/B Comparison
                 </button>
               )}
             </div>
-
-            {/* Template Library */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl">
-              <TemplateLibrary
-                onLoadTemplate={handleLoadTemplate}
-                currentPrompt={prompt}
-                currentModel={model}
-                currentSettings={{ aspectRatio, numberOfImages, model }}
-                currentVehicle={selectedVehicle}
-              />
-            </div>
-
-            {/* Generation History */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl">
-              <GenerationHistory onLoadPrompt={handleLoadPromptFromHistory} />
-            </div>
           </div>
 
-          {/* Center - Prompt Builder & Preview */}
-          <div className="col-span-8 space-y-6">
-            {/* Prompt Builder */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-6 shadow-2xl">
-              <SmartPromptBuilder
+          {/* RIGHT COLUMN - Output & Preview */}
+          <div className="col-span-7 space-y-4">
+            {/* Interactive Prompt Preview */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <InteractivePromptPreview
+                basePrompt={basePrompt}
+                activeModules={activeModules}
+                selectedScene={selectedScene}
+                selectedNegatives={selectedNegatives}
                 vehicle={selectedVehicle}
-                onPromptChange={setPrompt}
-                initialPrompt={prompt}
               />
-
-              <div className="mt-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
-                <label className="block text-xs font-medium text-slate-400 mb-2">
-                  📝 Final Prompt Preview
-                </label>
-                <div className="text-sm text-slate-300 max-h-24 overflow-y-auto">
-                  {prompt || <span className="text-slate-500 italic">Your prompt will appear here...</span>}
-                </div>
-              </div>
-
-              {error && (
-                <div className="mt-4 bg-red-900/30 border-2 border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
-                  <p className="font-bold">⚠️ Error:</p>
-                  <p>{error}</p>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={isGenerateDisabled}
-                className={`w-full mt-6 flex justify-center items-center py-4 px-6 border-2 border-transparent rounded-xl shadow-2xl text-lg font-bold text-white transition-all transform ${
-                  isGenerateDisabled
-                    ? 'bg-slate-700 cursor-not-allowed opacity-50'
-                    : 'bg-gradient-to-r from-canam-orange via-red-600 to-canam-orange bg-size-200 hover:bg-right-center active:scale-95 shadow-canam-orange/50'
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Generating Magic...
-                  </>
-                ) : (
-                  <>
-                    ✨ Generate Thumbnail
-                  </>
-                )}
-              </button>
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-900/30 border-2 border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
+                <p className="font-bold">⚠️ Error:</p>
+                <p>{error}</p>
+              </div>
+            )}
+
+            {/* Zoom Controls (only show when images exist) */}
+            {generatedImages.length > 0 && (
+              <div className="flex justify-end">
+                <ZoomControls zoomLevel={zoomLevel} onZoomChange={setZoomLevel} />
+              </div>
+            )}
 
             {/* Image Display */}
             <ImageDisplay
               isLoading={isLoading}
               generatedImages={generatedImages}
+              zoomLevel={zoomLevel}
               onAddText={(url, promptText) => setTextEditorImage({ url, prompt: promptText })}
               onFilter={setFilterEditorImage}
               onExport={setExportImage}
               onExtractColors={setColorExtractorImage}
             />
+
+            {/* Filmstrip History */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <FilmstripHistory onImageSelect={setFilterEditorImage} />
+            </div>
           </div>
         </div>
       </main>
+
+      {/* Sticky Generate Bar */}
+      <StickyGenerateBar
+        prompt={finalPrompt}
+        isLoading={isLoading}
+        isDisabled={isGenerateDisabled}
+        onGenerate={handleGenerate}
+        activeModulesCount={activeModules.length}
+        selectedScene={selectedScene}
+        selectedNegativesCount={selectedNegatives.length}
+      />
 
       {/* Modals */}
       {textEditorImage && (
