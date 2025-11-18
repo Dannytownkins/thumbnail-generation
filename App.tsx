@@ -85,7 +85,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
         ) : generatedImages.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full" style={{ transform: `scale(${scaleMultiplier})`, transformOrigin: 'top center' }}>
             {generatedImages.map((image) => (
-              <div key={image.id} className="group relative bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700 hover:border-canam-orange transition-all shadow-2xl hover:shadow-canam-orange/20">
+              <div key={image.id} className="group relative bg-slate-800/50 rounded-xl overflow-hidden border border-slate-700 hover:border-canam-orange transition-all shadow-2xl hover:shadow-canam-orange/20">
                 <img
                   src={image.url}
                   alt={`Generated Thumbnail ${image.id}`}
@@ -99,42 +99,42 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
                         const filename = generateFilename(image.vehicle, image.prompt);
                         downloadImage(image.url, filename);
                       }}
-                      className="bg-gradient-to-r from-electric-blue to-cyan-600 text-white font-bold py-2 px-2 rounded-lg hover:from-electric-blue hover:to-cyan-700 transition-all shadow-lg text-xs"
+                      className="bg-gradient-to-r from-electric-blue to-cyan-600 text-white font-bold py-2 px-2 rounded-xl hover:from-electric-blue hover:to-cyan-700 transition-all shadow-lg text-xs"
                     >
                       💾 Download
                     </button>
                     <button
                       onClick={() => onAddText(image.url, image.prompt)}
-                      className="bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-2 rounded-lg hover:from-canam-orange hover:to-red-700 transition-all shadow-lg text-xs"
+                      className="bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-2 rounded-xl hover:from-canam-orange hover:to-red-700 transition-all shadow-lg text-xs"
                     >
                       ✏️ Text
                     </button>
                     <button
                       onClick={() => onRegenerate(image)}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2 px-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-xs"
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-2 px-2 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-xs"
                       title="Re-generate with same prompt"
                     >
                       🔄 Re-Gen
                     </button>
                   </div>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-4 gap-2">
                     <button
                       onClick={() => onFilter(image.url)}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-purple-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded-lg hover:bg-purple-600 transition-all text-xs"
                       title="Apply filters"
                     >
                       🎨
                     </button>
                     <button
                       onClick={() => onExport(image.url)}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-green-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded-lg hover:bg-green-600 transition-all text-xs"
                       title="Export to formats"
                     >
                       📱
                     </button>
                     <button
                       onClick={() => onExtractColors(image.url)}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-pink-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded-lg hover:bg-pink-600 transition-all text-xs"
                       title="Extract colors"
                     >
                       🎨
@@ -143,7 +143,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
                       onClick={() => {
                         navigator.clipboard.writeText(image.prompt || '');
                       }}
-                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded hover:bg-blue-600 transition-all text-xs"
+                      className="bg-slate-700 text-white font-medium py-1.5 px-1.5 rounded-lg hover:bg-blue-600 transition-all text-xs"
                       title="Copy prompt"
                     >
                       📋
@@ -458,7 +458,7 @@ const App: React.FC = () => {
                     id="model"
                     value={model}
                     onChange={(e) => setModel(e.target.value as ImageModel)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent text-sm font-medium"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange focus:border-transparent text-sm font-medium"
                   >
                     <option value={ImageModel.GEMINI_FLASH_IMAGE}>⚡ Gemini Flash (Fast)</option>
                     <option value={ImageModel.IMAGEN}>🎨 Imagen 4.0 (Max Quality)</option>
@@ -531,7 +531,7 @@ const App: React.FC = () => {
                         id="aspectRatio"
                         value={aspectRatio}
                         onChange={(e) => setAspectRatio(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
                       >
                         <option value="16:9">📺 16:9 (YouTube Standard)</option>
                         <option value="1:1">⬛ 1:1 (Square)</option>
@@ -575,21 +575,21 @@ const App: React.FC = () => {
               <div className="space-y-3">
                 <button
                   onClick={() => setShowVideoExtractor(true)}
-                  className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg text-sm"
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg text-sm"
                 >
                   📹 Video Frame Extractor
                 </button>
 
                 <button
                   onClick={() => setShowBrandLibrary(true)}
-                  className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-sm"
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg text-sm"
                 >
                   🎨 Brand Asset Library
                 </button>
 
                 <button
                   onClick={() => setShowBatchQueue(true)}
-                  className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg text-sm"
+                  className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg text-sm"
                 >
                   ⚡ Batch Generation Queue
                 </button>
@@ -597,7 +597,7 @@ const App: React.FC = () => {
                 {generatedImages.length >= 2 && (
                   <button
                     onClick={() => setShowABComparison(true)}
-                    className="w-full px-4 py-2.5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg text-sm"
+                    className="w-full px-4 py-2.5 bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold rounded-xl hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg text-sm"
                   >
                     ⚔️ A/B Comparison
                   </button>
@@ -631,7 +631,7 @@ const App: React.FC = () => {
 
             {/* Error Display */}
             {error && (
-              <div className="bg-red-900/30 border-2 border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-900/30 border-2 border-red-700 text-red-300 px-4 py-3 rounded-xl text-sm">
                 <p className="font-bold">⚠️ Error:</p>
                 <p>{error}</p>
               </div>
