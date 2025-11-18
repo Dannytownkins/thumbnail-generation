@@ -237,6 +237,64 @@ const App: React.FC = () => {
     saveLastModel(model);
   }, [model]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      switch (key) {
+        case 'g':
+          // Generate
+          if (!isGenerateDisabled) {
+            handleGenerate();
+          }
+          break;
+        case '1':
+          // Select Can-Am Maverick
+          setSelectedVehicle(VehicleType.CANAM_MAVERICK);
+          break;
+        case '2':
+          // Select X3
+          setSelectedVehicle(VehicleType.X3);
+          break;
+        case '3':
+          // Select RZR
+          setSelectedVehicle(VehicleType.RZR);
+          break;
+        case '4':
+          // Select General
+          setSelectedVehicle(VehicleType.GENERAL);
+          break;
+        case 'm':
+          // Toggle/cycle model
+          setModel((prev) =>
+            prev === ImageModel.GEMINI_FLASH_IMAGE ? ImageModel.IMAGEN : ImageModel.GEMINI_FLASH_IMAGE
+          );
+          break;
+        case 'h':
+          // Scroll to history section
+          const historyElement = document.querySelector('[data-section="history"]');
+          if (historyElement) {
+            historyElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          break;
+        case 't':
+          // Save as template - future implementation
+          showToast('Template save feature coming soon!', 'info', 2000);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isGenerateDisabled, handleGenerate]);
+
   // Build the final prompt
   const buildFinalPrompt = useCallback(() => {
     let prompt = basePrompt;
@@ -599,7 +657,7 @@ const App: React.FC = () => {
             />
 
             {/* Filmstrip History */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl" data-section="history">
               <FilmstripHistory onImageSelect={setFilterEditorImage} />
             </div>
           </div>
