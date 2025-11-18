@@ -22,10 +22,10 @@ export const generateThumbnail = async (
     imageFile?: File;
   }
 ): Promise<string[]> => {
-  const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.API_KEY;
+  const apiKey = import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.API_KEY;
 
   if (!apiKey) {
-    throw new Error('API key not found. Please set VITE_API_KEY in your .env.local file.');
+    throw new Error('API key not found. Please set VITE_API_KEY or VITE_GEMINI_API_KEY in your .env.local file.');
   }
 
   const ai = new GoogleGenAI({ apiKey });
