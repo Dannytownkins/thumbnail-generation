@@ -17,6 +17,13 @@ const EXPORT_FORMATS: ExportFormat[] = [
   { name: 'Pinterest Pin', width: 1000, height: 1500, platform: 'Pinterest' },
 ];
 
+// New quick presets for one-click actions
+const QUICK_PRESETS = {
+  'Social Bundle': ['Instagram Post', 'Instagram Story', 'Facebook Post'],
+  'YouTube Kit': ['YouTube Thumbnail', 'YouTube Banner', 'Twitter Post'],
+  'Ad Campaign': ['Facebook Post', 'Instagram Story', 'LinkedIn Post'],
+};
+
 interface MultiFormatExportProps {
   imageUrl: string;
   onClose: () => void;
@@ -223,6 +230,24 @@ const MultiFormatExport: React.FC<MultiFormatExportProps> = ({ imageUrl, onClose
           {/* Preview & Settings */}
           <div className="col-span-8 flex flex-col">
             {/* Settings */}
+            <div className="bg-slate-900 rounded-lg border border-slate-700 p-4 mb-4">
+              <h4 className="text-sm font-semibold text-white mb-3">⚡ Quick Bundles</h4>
+              <div className="flex gap-3">
+                {Object.entries(QUICK_PRESETS).map(([name, formatNames]) => (
+                  <button
+                    key={name}
+                    onClick={() => {
+                       const indices = formatNames.map(name => EXPORT_FORMATS.findIndex(f => f.name === name)).filter(i => i !== -1);
+                       setSelectedFormats(new Set(indices));
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white text-sm font-medium rounded-lg transition-colors border border-slate-700"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="bg-slate-900 rounded-lg border border-slate-700 p-4 mb-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>

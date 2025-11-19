@@ -33,6 +33,7 @@ const ImageFilterEditor: React.FC<ImageFilterEditorProps> = ({ imageUrl, onClose
   const [imageLoaded, setImageLoaded] = useState(false);
   const [history, setHistory] = useState<ImageFilters[]>([DEFAULT_FILTERS]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     const img = new Image();
@@ -153,12 +154,39 @@ const ImageFilterEditor: React.FC<ImageFilterEditorProps> = ({ imageUrl, onClose
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex">
       {/* Canvas Area */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="relative">
+      <div className="flex-1 flex items-center justify-center p-8 relative">
+        <div className="relative max-w-full max-h-full group">
           <canvas
             ref={canvasRef}
             className="max-w-full max-h-full border-2 border-slate-700 rounded-lg shadow-2xl"
           />
+          
+          {/* Comparison Toggle */}
+          <button
+            onMouseDown={() => {
+                setShowComparison(true);
+                applyFilters(DEFAULT_FILTERS); // Show original
+            }}
+            onMouseUp={() => {
+                setShowComparison(false);
+                applyFilters(filters); // Restore filters
+            }}
+            onMouseLeave={() => {
+                if (showComparison) {
+                    setShowComparison(false);
+                    applyFilters(filters);
+                }
+            }}
+            className="absolute top-4 right-4 bg-white/10 backdrop-blur text-white px-4 py-2 rounded-full border border-white/20 hover:bg-white/20 transition-all font-bold text-sm select-none"
+          >
+            👁️ Hold to Compare
+          </button>
+
+          {showComparison && (
+            <div className="absolute top-4 left-4 bg-black/70 text-white px-3 py-1 rounded text-xs font-bold border border-white/20">
+                ORIGINAL
+            </div>
+          )}
         </div>
       </div>
 
