@@ -117,6 +117,14 @@ export const SCENE_LIBRARY: Scene[] = [
     thumbnail: '✨',
     category: 'studio',
   },
+  {
+    id: 'green-screen',
+    name: 'Green Screen',
+    description: 'Pure chroma green background',
+    keywords: 'pure chroma green background, solid #00b140 background, even lighting, no shadows, chroma key ready',
+    thumbnail: '🟩',
+    category: 'studio',
+  },
 
   // Nature
   {

@@ -18,6 +18,13 @@ const FONT_FAMILIES = [
   'Montserrat',
 ];
 
+const BRAND_PALETTES = [
+  { name: 'SlingMods Core', colors: ['#FF4400', '#000000', '#FFFFFF'] },
+  { name: 'Electric Night', colors: ['#00F0FF', '#7000FF', '#000000'] },
+  { name: 'Toxic Sale', colors: ['#CCFF00', '#000000', '#FF0000'] },
+  { name: 'Clean White', colors: ['#FFFFFF', '#000000', '#333333'] },
+];
+
 const TEXT_PRESETS = [
   { text: 'NEW!', fontSize: 120, color: '#FFFFFF', strokeColor: '#FF0000', strokeWidth: 8 },
   { text: 'EPIC', fontSize: 140, color: '#FFD700', strokeColor: '#000000', strokeWidth: 10 },
@@ -228,6 +235,37 @@ const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
             >
               ➕ Add Custom Text
             </button>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-2">Brand Palettes</label>
+              <div className="grid grid-cols-2 gap-2">
+                {BRAND_PALETTES.map((palette, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                       if (selectedOverlay !== null) {
+                         updateSelectedOverlay({ color: palette.colors[0], strokeColor: palette.colors[1] });
+                       } else {
+                         // Add new text with this palette
+                         addTextOverlay({
+                           text: 'SLINGMODS',
+                           fontSize: 100,
+                           color: palette.colors[0],
+                           strokeColor: palette.colors[1],
+                           strokeWidth: 8,
+                         });
+                       }
+                    }}
+                    className="h-8 rounded-lg border border-slate-600 flex overflow-hidden hover:border-white transition-all"
+                    title={palette.name}
+                  >
+                    <div className="h-full w-1/3" style={{ backgroundColor: palette.colors[0] }} />
+                    <div className="h-full w-1/3" style={{ backgroundColor: palette.colors[1] }} />
+                    <div className="h-full w-1/3" style={{ backgroundColor: palette.colors[2] }} />
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-2">Quick Presets</label>
