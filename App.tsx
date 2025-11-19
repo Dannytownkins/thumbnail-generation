@@ -20,7 +20,6 @@ import ColorPaletteExtractor from './components/ColorPaletteExtractor';
 import PromptModuleSelector from './components/PromptModuleSelector';
 import SceneLibrarySelector from './components/SceneLibrarySelector';
 import NegativePromptBuilder from './components/NegativePromptBuilder';
-import ThemeSelector from './components/ThemeSelector';
 import FilmstripHistory from './components/FilmstripHistory';
 import ZoomControls from './components/ZoomControls';
 import StickyGenerateBar from './components/StickyGenerateBar';
@@ -161,6 +160,7 @@ const App: React.FC = () => {
   const [basePrompt, setBasePrompt] = useState<string>('');
   const [model, setModel] = useState<ImageModel>(ImageModel.GEMINI_FLASH_IMAGE);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
+  const [selectedMods, setSelectedMods] = useState<string[]>([]);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +171,6 @@ const App: React.FC = () => {
   const [activeModules, setActiveModules] = useState<string[]>([]);
   const [selectedScene, setSelectedScene] = useState<string | null>(null);
   const [selectedNegatives, setSelectedNegatives] = useState<string[]>([]);
-  const [currentTheme, setCurrentTheme] = useState<string>('carbon');
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   // Modal states
@@ -186,10 +185,7 @@ const App: React.FC = () => {
 
   // Load saved theme on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('selectedTheme');
-    if (savedTheme) {
-      setCurrentTheme(savedTheme);
-    }
+    // Theme functionality removed
   }, []);
 
   // Build the final prompt
@@ -199,6 +195,11 @@ const App: React.FC = () => {
     // Add vehicle
     if (selectedVehicle) {
       prompt = `${selectedVehicle} ${prompt}`;
+    }
+
+    // Add mods
+    if (selectedMods.length > 0) {
+      prompt = `${prompt}, equipped with ${selectedMods.join(', ')}`;
     }
 
     // Add scene
@@ -284,6 +285,8 @@ const App: React.FC = () => {
               <VehicleSelector
                 selectedVehicle={selectedVehicle}
                 onSelectVehicle={setSelectedVehicle}
+                selectedMods={selectedMods}
+                onSelectMods={setSelectedMods}
               />
             </div>
 
@@ -384,10 +387,7 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Theme Selector */}
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
-              <ThemeSelector currentTheme={currentTheme} onThemeChange={setCurrentTheme} />
-            </div>
+            {/* Theme Selector - Removed */}
 
             {/* Template Library */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
