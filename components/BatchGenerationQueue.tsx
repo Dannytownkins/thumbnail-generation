@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { BatchJob, ImageModel, VehicleType, GenerationSettings } from '../types';
 import { generateThumbnail } from '../services/geminiService';
+import { resolveJobSettings, reorderJobList } from '../utils/batchQueueHelpers';
 
 interface BatchGenerationQueueProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
       prompt: newPrompt,
       vehicle: newVehicle ? (newVehicle as VehicleType) : undefined,
       model: defaultSettings.model,
-      settings: defaultSettings,
+      settings: { ...defaultSettings },
       status: 'pending',
       createdAt: Date.now(),
       note: newNote.trim() || undefined,
@@ -71,15 +72,7 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
   };
 
   const reorderJobs = (sourceId: string, targetId: string) => {
-    setJobs((prev) => {
-      const sourceIndex = prev.findIndex((j) => j.id === sourceId);
-      const targetIndex = prev.findIndex((j) => j.id === targetId);
-      if (sourceIndex === -1 || targetIndex === -1) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(sourceIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      return next;
-    });
+    setJobs((prev) => reorderJobList(prev, sourceId, targetId));
   };
 
   const handleDragStart = (id: string) => {
@@ -113,9 +106,7 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
       );
 
       try {
-        const overrides = job.overrides ?? {};
-        const aspectRatio = overrides.aspectRatio ?? job.settings.aspectRatio;
-        const numberOfImages = overrides.numberOfImages ?? job.settings.numberOfImages;
+        const { aspectRatio, numberOfImages } = resolveJobSettings(job);
         const resultUrls = await generateThumbnail(job.prompt, job.model, {
           aspectRatio,
           numberOfImages,

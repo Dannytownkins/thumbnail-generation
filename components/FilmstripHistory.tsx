@@ -173,7 +173,12 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h4 className="text-sm font-semibold text-white mb-1">
-                    Image #{history.findIndex((img) => img.id === selectedImage.id) + 1}
+                    {(() => {
+                      const overallIndex = history.findIndex((img) => img.id === selectedImage.id);
+                      const displayNumber =
+                        overallIndex === -1 ? '?' : history.length - overallIndex;
+                      return `Image #${displayNumber}`;
+                    })()}
                   </h4>
                   <p className="text-xs text-slate-400">
                     {new Date(selectedImage.timestamp).toLocaleString()}
@@ -223,6 +228,15 @@ const FilmstripHistory: React.FC<FilmstripHistoryProps> = ({ onImageSelect }) =>
                   <div className="text-xs text-slate-500 mb-1">Prompt:</div>
                   <div className="text-xs text-slate-300 bg-slate-900/50 rounded p-2 max-h-20 overflow-y-auto">
                     {selectedImage.prompt}
+                  </div>
+                </div>
+              )}
+
+              {selectedImage.note && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Notes:</div>
+                  <div className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded p-2">
+                    {selectedImage.note}
                   </div>
                 </div>
               )}

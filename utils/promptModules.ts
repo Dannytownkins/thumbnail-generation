@@ -216,8 +216,8 @@ export const PROMPT_MODULES: PromptModule[] = [
 export const buildModularPrompt = (
   basePrompt: string,
   activeModules: string[],
-  negativePrompt?: string
-): { enhancedPrompt: string; moduleKeywords: string[] } => {
+  negativePrompt?: string,
+): { enhancedPrompt: string; moduleKeywords: string[]; negativePrompt?: string } => {
   const selectedModules = PROMPT_MODULES.filter((m) => activeModules.includes(m.id));
   const moduleKeywords = selectedModules.map((m) => m.keywords);
 
@@ -230,6 +230,7 @@ export const buildModularPrompt = (
   return {
     enhancedPrompt,
     moduleKeywords,
+    negativePrompt: negativePrompt?.trim(),
   };
 };
 

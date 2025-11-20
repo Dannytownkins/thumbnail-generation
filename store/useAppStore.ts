@@ -131,7 +131,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     setError: (message) => set({ error: message }),
     toggleFocusMode: () => set((state) => ({ focusMode: !state.focusMode })),
     setFocusMode: (value) => set({ focusMode: value }),
-    addSessionRun: (run) => set((state) => ({ sessionRuns: [run, ...state.sessionRuns] })),
+    addSessionRun: (run) =>
+      set((state) => ({
+        sessionRuns: [run, ...state.sessionRuns].slice(0, 12),
+      })),
     updateSessionRun: (id, patch) =>
       set((state) => ({
         sessionRuns: state.sessionRuns.map((run) =>

@@ -16,23 +16,26 @@ const GenerationHistory: React.FC<GenerationHistoryProps> = ({ onLoadPrompt }) =
 
   useEffect(() => {
     loadHistory();
+    const handler = () => loadHistory();
+    window.addEventListener('history:refresh', handler);
+    return () => window.removeEventListener('history:refresh', handler);
   }, []);
 
-  const loadHistory = () => {
-    setHistory(getHistory());
+  const loadHistory = async () => {
+    setHistory(await getHistory());
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
     if (confirm('Clear all history? This cannot be undone.')) {
-      clearHistory();
-      loadHistory();
+      await clearHistory();
+      await loadHistory();
       setSelectedImages(new Set());
     }
   };
 
-  const handleDeleteImage = (id: string) => {
-    deleteFromHistory(id);
-    loadHistory();
+  const handleDeleteImage = async (id: string) => {
+    await deleteFromHistory(id);
+    await loadHistory();
     setSelectedImages((prev) => {
       const newSet = new Set(prev);
       newSet.delete(id);

@@ -24,7 +24,6 @@ import SessionTimeline from './components/SessionTimeline';
 import { useAppStore } from './store/useAppStore';
 import { computeCacheKey } from './utils/cacheKey';
 import { getImagesByCacheKey, updateHistoryImage } from './utils/historyStore';
-import { personalProfile } from './config/personalProfile';
 
 const LazyVideoFrameExtractor = React.lazy(() => import('./components/VideoFrameExtractor'));
 const LazyBrandAssetLibrary = React.lazy(() => import('./components/BrandAssetLibrary'));
@@ -113,7 +112,11 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-electric-blue rounded-full filter blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
       </div>
 
-      <div className="relative z-10 w-full">
+      <div className="absolute top-6 right-6 text-xs text-slate-400 bg-slate-900/60 px-3 py-1 rounded-full border border-slate-700">
+        📎 Drag & drop a reference image to pair it with the next run
+      </div>
+
+      <div className="relative z-10 w-full mt-6">
         {isLoading ? (
           <Loader />
         ) : generatedImages.length > 0 ? (
@@ -460,7 +463,12 @@ const App: React.FC = () => {
   const handleUpdateNote = useCallback(
     async (imageId: string, note: string) => {
       updateGeneratedImage(imageId, { note });
-      await updateHistoryImage(imageId, { note });
+      try {
+        await updateHistoryImage(imageId, { note });
+        window.dispatchEvent(new CustomEvent('history:refresh'));
+      } catch (error) {
+        console.warn('Failed to persist note to history', error);
+      }
     },
     [updateGeneratedImage],
   );
@@ -504,8 +512,8 @@ const App: React.FC = () => {
       }
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 's') {
         event.preventDefault();
-        if (generatedImages[0]) {
-          setExportImage(generatedImages[0]);
+        if (generatedImages.length > 0) {
+          setExportImage(generatedImages[generatedImages.length - 1]);
         }
       }
     };
