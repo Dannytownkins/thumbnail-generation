@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ExportFormat } from '../types';
+import { ExportFormat, GeneratedImage } from '../types';
 import { downloadMultipleImages } from '../utils/download';
+import { logExport } from '../utils/historyStore';
 
 const EXPORT_FORMATS: ExportFormat[] = [
   { name: 'YouTube Thumbnail', width: 1280, height: 720, platform: 'YouTube' },
@@ -25,12 +26,11 @@ const QUICK_PRESETS = {
 };
 
 interface MultiFormatExportProps {
-  imageUrl: string;
+  image: GeneratedImage;
   onClose: () => void;
-  imageName?: string;
 }
 
-const MultiFormatExport: React.FC<MultiFormatExportProps> = ({ imageUrl, onClose, imageName = 'export' }) => {
+const MultiFormatExport: React.FC<MultiFormatExportProps> = ({ image, onClose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -46,8 +46,8 @@ const MultiFormatExport: React.FC<MultiFormatExportProps> = ({ imageUrl, onClose
       imageRef.current = img;
       setImageLoaded(true);
     };
-    img.src = imageUrl;
-  }, [imageUrl]);
+    img.src = image.url;
+  }, [image]);
 
   useEffect(() => {
     if (imageLoaded) {
@@ -143,17 +143,33 @@ const MultiFormatExport: React.FC<MultiFormatExportProps> = ({ imageUrl, onClose
     setSelectedFormats(newSelected);
   };
 
-  const handleExportAll = () => {
+  const handleExportAll = async () => {
     const exports = Array.from(selectedFormats).map((index) => {
       const format = EXPORT_FORMATS[index];
       const dataUrl = renderToFormat(format);
       return {
         url: dataUrl || '',
-        name: `${imageName}_${format.platform}_${format.name.replace(/\s+/g, '_')}.jpg`,
+        format,
+        name: `${image.prompt ? image.prompt.slice(0, 24).replace(/\s+/g, '_') : 'thumbnail'}_${format.platform}_${format.name.replace(/\s+/g, '_')}.jpg`,
       };
     }).filter((e) => e.url);
 
-    downloadMultipleImages(exports);
+    downloadMultipleImages(exports.map((exp) => ({ url: exp.url, name: exp.name })));
+
+    await Promise.all(
+      exports.map((payload) =>
+        logExport({
+          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          imageId: image.id,
+          format: payload.format.name,
+          width: payload.format.width,
+          height: payload.format.height,
+          destination: payload.format.platform,
+          exportedAt: Date.now(),
+        }),
+      ),
+    );
+    window.dispatchEvent(new CustomEvent('history:refresh'));
   };
 
   const groupedFormats = EXPORT_FORMATS.reduce((acc, format, index) => {

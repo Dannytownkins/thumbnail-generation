@@ -1,9 +1,16 @@
-import { Template, GeneratedImage } from '../types';
+import { Template, GeneratedImage, StylePreset } from '../types';
+import {
+  saveImagesToHistory,
+  getHistory as getHistoryFromDb,
+  clearHistory as clearHistoryFromDb,
+  deleteHistoryImage,
+} from './historyStore';
 
 const STORAGE_KEYS = {
   TEMPLATES: 'slingmods_templates',
-  HISTORY: 'slingmods_history',
   SETTINGS: 'slingmods_settings',
+  LAST_SESSION: 'slingmods_last_session',
+  STYLE_PRESETS: 'slingmods_style_presets',
 };
 
 // Template Management
@@ -40,27 +47,24 @@ export const toggleTemplateFavorite = (id: string): void => {
 };
 
 // History Management
-export const saveToHistory = (image: GeneratedImage): void => {
-  const history = getHistory();
-  history.unshift(image); // Add to beginning
-
-  // Keep only last 100 images
-  const trimmedHistory = history.slice(0, 100);
-  localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(trimmedHistory));
+export const saveToHistory = async (image: GeneratedImage): Promise<void> => {
+  await saveImagesToHistory([image]);
 };
 
-export const getHistory = (): GeneratedImage[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.HISTORY);
-  return data ? JSON.parse(data) : [];
+export const saveManyToHistory = async (images: GeneratedImage[]): Promise<void> => {
+  await saveImagesToHistory(images);
 };
 
-export const clearHistory = (): void => {
-  localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([]));
+export const getHistory = async (): Promise<GeneratedImage[]> => {
+  return getHistoryFromDb();
 };
 
-export const deleteFromHistory = (id: string): void => {
-  const history = getHistory().filter(img => img.id !== id);
-  localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+export const clearHistory = async (): Promise<void> => {
+  await clearHistoryFromDb();
+};
+
+export const deleteFromHistory = async (id: string): Promise<void> => {
+  await deleteHistoryImage(id);
 };
 
 // Settings Management
@@ -98,4 +102,22 @@ export const importData = (jsonData: string): void => {
   } catch (error) {
     throw new Error('Invalid data format');
   }
+};
+
+export const saveLastSession = (snapshot: any): void => {
+  localStorage.setItem(STORAGE_KEYS.LAST_SESSION, JSON.stringify(snapshot));
+};
+
+export const loadLastSession = (): any | null => {
+  const data = localStorage.getItem(STORAGE_KEYS.LAST_SESSION);
+  return data ? JSON.parse(data) : null;
+};
+
+export const saveStylePresets = (presets: StylePreset[]): void => {
+  localStorage.setItem(STORAGE_KEYS.STYLE_PRESETS, JSON.stringify(presets));
+};
+
+export const getStylePresets = (): StylePreset[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.STYLE_PRESETS);
+  return data ? JSON.parse(data) : [];
 };

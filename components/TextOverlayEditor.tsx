@@ -6,6 +6,7 @@ interface TextOverlayEditorProps {
   imageUrl: string;
   onClose: () => void;
   originalPrompt?: string;
+  copyIdeas?: string[];
 }
 
 const FONT_FAMILIES = [
@@ -37,6 +38,7 @@ const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
   imageUrl,
   onClose,
   originalPrompt,
+  copyIdeas,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [overlays, setOverlays] = useState<TextOverlay[]>([]);
@@ -235,6 +237,31 @@ const TextOverlayEditor: React.FC<TextOverlayEditorProps> = ({
             >
               ➕ Add Custom Text
             </button>
+
+            {copyIdeas && copyIdeas.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-2">AI Copy Ideas</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {copyIdeas.map((idea, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() =>
+                        addTextOverlay({
+                          text: idea.toUpperCase(),
+                          fontSize: 96,
+                          color: '#FFFFFF',
+                          strokeColor: '#000000',
+                          strokeWidth: 10,
+                        })
+                      }
+                      className="w-full text-left px-3 py-2 bg-slate-800 text-slate-200 text-xs rounded-lg border border-slate-700 hover:border-canam-orange transition-colors"
+                    >
+                      {idea}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-2">Brand Palettes</label>

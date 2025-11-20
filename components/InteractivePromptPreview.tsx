@@ -8,6 +8,7 @@ interface InteractivePromptPreviewProps {
   selectedScene: string | null;
   selectedNegatives: string[];
   vehicle?: string | null;
+  previousPrompt?: string | null;
 }
 
 const InteractivePromptPreview: React.FC<InteractivePromptPreviewProps> = ({
@@ -16,6 +17,7 @@ const InteractivePromptPreview: React.FC<InteractivePromptPreviewProps> = ({
   selectedScene,
   selectedNegatives,
   vehicle,
+  previousPrompt,
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
 
@@ -54,6 +56,16 @@ const InteractivePromptPreview: React.FC<InteractivePromptPreviewProps> = ({
 
   const promptParts = buildFullPrompt();
   const fullPromptText = promptParts.map((p) => p.text).join(', ');
+  const diffSegments = React.useMemo(() => {
+    if (!previousPrompt) return null;
+    const prevWords = previousPrompt.split(/\s+/).filter(Boolean);
+    const currentWords = fullPromptText.split(/\s+/).filter(Boolean);
+    const seen = new Set(prevWords);
+    return currentWords.map((word) => ({
+      word,
+      added: !seen.has(word),
+    }));
+  }, [previousPrompt, fullPromptText]);
   const characterCount = fullPromptText.length;
   const wordCount = fullPromptText.split(/\s+/).filter(Boolean).length;
 
@@ -142,6 +154,27 @@ const InteractivePromptPreview: React.FC<InteractivePromptPreviewProps> = ({
               <span className="text-slate-500 italic">Start building your prompt...</span>
             )}
           </div>
+          {selectedNegatives.length > 0 && (
+            <div className="text-xs text-red-300 mt-2 line-clamp-1">
+              🚫 {selectedNegatives.join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {diffSegments && diffSegments.length > 0 && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 space-y-1">
+          <div className="text-slate-400 font-semibold">Prompt delta vs previous run</div>
+          <p className="leading-5">
+            {diffSegments.map((segment, index) => (
+              <span
+                key={`${segment.word}-${index}`}
+                className={segment.added ? 'text-green-300 font-semibold' : 'text-slate-400'}
+              >
+                {segment.word}{' '}
+              </span>
+            ))}
+          </p>
         </div>
       )}
 

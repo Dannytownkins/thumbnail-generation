@@ -17,6 +17,8 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
   const [newPrompt, setNewPrompt] = useState('');
   const [newVehicle, setNewVehicle] = useState<VehicleType | ''>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const addJob = () => {
     if (!newPrompt.trim()) return;
@@ -29,15 +31,70 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
       settings: defaultSettings,
       status: 'pending',
       createdAt: Date.now(),
+      note: newNote.trim() || undefined,
     };
 
     setJobs([...jobs, job]);
     setNewPrompt('');
     setNewVehicle('');
+    setNewNote('');
   };
 
   const removeJob = (id: string) => {
     setJobs(jobs.filter((j) => j.id !== id));
+  };
+
+  const updateJob = (id: string, updates: Partial<BatchJob>) => {
+    setJobs((prev) =>
+      prev.map((job) => (job.id === id ? { ...job, ...updates } : job)),
+    );
+  };
+
+  const duplicateJob = (id: string) => {
+    const job = jobs.find((j) => j.id === id);
+    if (!job) return;
+    const clone: BatchJob = {
+      ...job,
+      id: `${Date.now()}-${Math.random()}`,
+      status: 'pending',
+      createdAt: Date.now(),
+      completedAt: undefined,
+      result: undefined,
+      error: undefined,
+    };
+    setJobs((prev) => {
+      const index = prev.findIndex((j) => j.id === id);
+      const next = [...prev];
+      next.splice(index + 1, 0, clone);
+      return next;
+    });
+  };
+
+  const reorderJobs = (sourceId: string, targetId: string) => {
+    setJobs((prev) => {
+      const sourceIndex = prev.findIndex((j) => j.id === sourceId);
+      const targetIndex = prev.findIndex((j) => j.id === targetId);
+      if (sourceIndex === -1 || targetIndex === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleDragStart = (id: string) => {
+    setDraggingId(id);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, targetId: string) => {
+    event.preventDefault();
+    if (draggingId && draggingId !== targetId) {
+      reorderJobs(draggingId, targetId);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
   };
 
   const clearCompleted = () => {
@@ -56,9 +113,12 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
       );
 
       try {
+        const overrides = job.overrides ?? {};
+        const aspectRatio = overrides.aspectRatio ?? job.settings.aspectRatio;
+        const numberOfImages = overrides.numberOfImages ?? job.settings.numberOfImages;
         const resultUrls = await generateThumbnail(job.prompt, job.model, {
-          aspectRatio: job.settings.aspectRatio,
-          numberOfImages: job.settings.numberOfImages,
+          aspectRatio,
+          numberOfImages,
         });
 
         const images = resultUrls.map((url, index) => ({
@@ -68,7 +128,7 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
           prompt: job.prompt,
           vehicle: job.vehicle,
           timestamp: Date.now(),
-          settings: job.settings,
+          settings: { ...job.settings, aspectRatio, numberOfImages },
         }));
 
         // Update job as completed
@@ -179,6 +239,13 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
               ➕ Add to Queue
             </button>
           </div>
+        <input
+          type="text"
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          placeholder="Optional note for this job"
+          className="mt-3 w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-canam-orange"
+        />
         </div>
 
         {/* Jobs List */}
@@ -194,7 +261,17 @@ const BatchGenerationQueue: React.FC<BatchGenerationQueueProps> = ({
           ) : (
             <div className="space-y-3">
               {jobs.map((job, index) => (
-                <JobCard key={job.id} job={job} index={index} onRemove={removeJob} />
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  index={index}
+                  onRemove={removeJob}
+                  onDuplicate={duplicateJob}
+                  onUpdate={updateJob}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                />
               ))}
             </div>
           )}
@@ -226,9 +303,23 @@ interface JobCardProps {
   job: BatchJob;
   index: number;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<BatchJob>) => void;
+  onDragStart: (id: string) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>, id: string) => void;
+  onDragEnd: () => void;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ job, index, onRemove }) => {
+const JobCard: React.FC<JobCardProps> = ({
+  job,
+  index,
+  onRemove,
+  onDuplicate,
+  onUpdate,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+}) => {
   const statusColors = {
     pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
     processing: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
@@ -244,7 +335,13 @@ const JobCard: React.FC<JobCardProps> = ({ job, index, onRemove }) => {
   };
 
   return (
-    <div className={`bg-slate-800 border rounded-lg p-4 ${statusColors[job.status]}`}>
+    <div
+      className={`bg-slate-800 border rounded-lg p-4 ${statusColors[job.status]}`}
+      draggable={job.status === 'pending'}
+      onDragStart={() => onDragStart(job.id)}
+      onDragOver={(event) => onDragOver(event, job.id)}
+      onDragEnd={onDragEnd}
+    >
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0 w-8 h-8 bg-slate-900 rounded-full flex items-center justify-center text-sm font-bold text-slate-400">
           {index + 1}
@@ -285,14 +382,75 @@ const JobCard: React.FC<JobCardProps> = ({ job, index, onRemove }) => {
         </div>
 
         {job.status === 'pending' && (
-          <button
-            onClick={() => onRemove(job.id)}
-            className="flex-shrink-0 px-3 py-1 bg-red-500/20 text-red-400 text-sm rounded hover:bg-red-500 hover:text-white transition-all"
-          >
-            Remove
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => onRemove(job.id)}
+              className="flex-shrink-0 px-3 py-1 bg-red-500/20 text-red-400 text-sm rounded hover:bg-red-500 hover:text-white transition-all"
+            >
+              Remove
+            </button>
+            <button
+              onClick={() => onDuplicate(job.id)}
+              className="flex-shrink-0 px-3 py-1 bg-slate-700 text-slate-200 text-sm rounded hover:bg-slate-600 transition-all"
+            >
+              Duplicate
+            </button>
+          </div>
         )}
       </div>
+
+      {job.status === 'pending' && (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400">Aspect Ratio</label>
+              <select
+                value={job.overrides?.aspectRatio ?? job.settings.aspectRatio}
+                onChange={(e) =>
+                  onUpdate(job.id, {
+                    overrides: {
+                      ...job.overrides,
+                      aspectRatio: e.target.value,
+                    },
+                  })
+                }
+                className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200"
+              >
+                <option value="16:9">16:9</option>
+                <option value="1:1">1:1</option>
+                <option value="9:16">9:16</option>
+                <option value="4:3">4:3</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400">
+                Images: {job.overrides?.numberOfImages ?? job.settings.numberOfImages}
+              </label>
+              <input
+                type="range"
+                min={1}
+                max={4}
+                value={job.overrides?.numberOfImages ?? job.settings.numberOfImages}
+                onChange={(e) =>
+                  onUpdate(job.id, {
+                    overrides: {
+                      ...job.overrides,
+                      numberOfImages: parseInt(e.target.value, 10),
+                    },
+                  })
+                }
+                className="w-full"
+              />
+            </div>
+          </div>
+          <textarea
+            value={job.note ?? ''}
+            onChange={(e) => onUpdate(job.id, { note: e.target.value })}
+            placeholder="Add a note for this variation..."
+            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200"
+          />
+        </div>
+      )}
     </div>
   );
 };

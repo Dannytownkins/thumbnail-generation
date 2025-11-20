@@ -19,6 +19,14 @@ export type GeneratedImage = {
   vehicle?: VehicleType;
   timestamp?: number;
   settings?: GenerationSettings;
+  cacheKey?: string;
+  note?: string;
+  favorite?: boolean;
+  shipped?: boolean;
+  referenceImage?: string;
+  copyIdeas?: string[];
+  exportLogs?: ExportLog[];
+  sessionId?: string;
 };
 
 export type GenerationSettings = {
@@ -118,6 +126,8 @@ export type BatchJob = {
   completedAt?: number;
   result?: GeneratedImage[];
   error?: string;
+  overrides?: Partial<GenerationSettings>;
+  note?: string;
 };
 
 export type VideoFrame = {
@@ -125,4 +135,31 @@ export type VideoFrame = {
   dataUrl: string;
   timestamp: number;
   index: number;
+};
+
+export type ExportLog = {
+  id: string;
+  imageId: string;
+  format: string;
+  width: number;
+  height: number;
+  destination?: string;
+  exportedAt: number;
+};
+
+export type SessionRun = {
+  id: string;
+  prompt: string;
+  cacheKey: string;
+  timestamp: number;
+  status: 'pending' | 'completed' | 'cached' | 'failed';
+  note?: string;
+};
+
+export type StylePreset = {
+  id: string;
+  name: string;
+  modules: string[];
+  sceneId: string | null;
+  createdAt: number;
 };

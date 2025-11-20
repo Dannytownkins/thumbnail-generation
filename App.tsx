@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { ImageModel, GeneratedImage, VehicleType, Template } from './types';
-import { generateThumbnail } from './services/geminiService';
-import { saveToHistory } from './utils/storage';
+import React, { useState, useCallback, useEffect, useMemo, Suspense } from 'react';
+import { ImageModel, GeneratedImage, VehicleType, Template, StylePreset } from './types';
+import { generateThumbnail, generateCopySuggestions } from './services/geminiService';
+import { saveManyToHistory } from './utils/storage';
 import { downloadImage, generateFilename } from './utils/download';
 import { buildModularPrompt } from './utils/promptModules';
 import { SCENE_LIBRARY } from './utils/sceneLibrary';
@@ -11,11 +11,7 @@ import SmartPromptBuilder from './components/SmartPromptBuilder';
 import TemplateLibrary from './components/TemplateLibrary';
 import TextOverlayEditor from './components/TextOverlayEditor';
 import ImageFilterEditor from './components/ImageFilterEditor';
-import VideoFrameExtractor from './components/VideoFrameExtractor';
-import BrandAssetLibrary from './components/BrandAssetLibrary';
 import MultiFormatExport from './components/MultiFormatExport';
-import BatchGenerationQueue from './components/BatchGenerationQueue';
-import ABComparison from './components/ABComparison';
 import ColorPaletteExtractor from './components/ColorPaletteExtractor';
 import PromptModuleSelector from './components/PromptModuleSelector';
 import SceneLibrarySelector from './components/SceneLibrarySelector';
@@ -24,6 +20,16 @@ import FilmstripHistory from './components/FilmstripHistory';
 import ZoomControls from './components/ZoomControls';
 import StickyGenerateBar from './components/StickyGenerateBar';
 import InteractivePromptPreview from './components/InteractivePromptPreview';
+import SessionTimeline from './components/SessionTimeline';
+import { useAppStore } from './store/useAppStore';
+import { computeCacheKey } from './utils/cacheKey';
+import { getImagesByCacheKey, updateHistoryImage } from './utils/historyStore';
+import { personalProfile } from './config/personalProfile';
+
+const LazyVideoFrameExtractor = React.lazy(() => import('./components/VideoFrameExtractor'));
+const LazyBrandAssetLibrary = React.lazy(() => import('./components/BrandAssetLibrary'));
+const LazyBatchGenerationQueue = React.lazy(() => import('./components/BatchGenerationQueue'));
+const LazyABComparison = React.lazy(() => import('./components/ABComparison'));
 
 const Header: React.FC = () => (
   <header className="relative overflow-hidden">
@@ -49,10 +55,12 @@ interface ImageDisplayProps {
   isLoading: boolean;
   generatedImages: GeneratedImage[];
   zoomLevel: number;
-  onAddText: (imageUrl: string, prompt?: string) => void;
+  onAddText: (imageUrl: string, prompt?: string, copyIdeas?: string[]) => void;
   onFilter: (imageUrl: string) => void;
-  onExport: (imageUrl: string) => void;
+  onExport: (image: GeneratedImage) => void;
   onExtractColors: (imageUrl: string) => void;
+  onUpdateNote: (imageId: string, note: string) => void;
+  onReferenceDrop: (file: File) => void;
 }
 
 const ImageDisplay: React.FC<ImageDisplayProps> = ({
@@ -63,11 +71,42 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   onFilter,
   onExport,
   onExtractColors,
+  onUpdateNote,
+  onReferenceDrop,
 }) => {
   const scaleMultiplier = zoomLevel / 100;
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string>('');
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      onReferenceDrop(file);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const startEditing = (image: GeneratedImage) => {
+    setEditingId(image.id);
+    setDraft(image.note ?? '');
+  };
+
+  const saveNote = (imageId: string) => {
+    onUpdateNote(imageId, draft.trim());
+    setEditingId(null);
+    setDraft('');
+  };
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6 flex items-center justify-center min-h-[600px] relative overflow-auto">
+    <div
+      className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl border-2 border-slate-700 p-6 flex items-center justify-center min-h-[600px] relative overflow-auto"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Animated background */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute top-0 left-0 w-96 h-96 bg-canam-orange rounded-full filter blur-3xl animate-pulse-slow"></div>
@@ -99,7 +138,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
                       💾 Download
                     </button>
                     <button
-                      onClick={() => onAddText(image.url, image.prompt)}
+                      onClick={() => onAddText(image.url, image.prompt, image.copyIdeas)}
                       className="bg-gradient-to-r from-canam-orange to-red-600 text-white font-bold py-2 px-3 rounded-lg hover:from-canam-orange hover:to-red-700 transition-all shadow-lg text-sm"
                     >
                       ✏️ Add Text
@@ -113,7 +152,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
                       🎨 Filters
                     </button>
                     <button
-                      onClick={() => onExport(image.url)}
+                      onClick={() => onExport(image)}
                       className="bg-slate-700 text-white font-medium py-1.5 px-2 rounded hover:bg-green-600 transition-all text-xs"
                     >
                       📱 Export
@@ -125,6 +164,45 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
                       🎨 Colors
                     </button>
                   </div>
+                </div>
+
+                <div className="bg-slate-900/70 backdrop-blur-sm border-t border-slate-700 p-3">
+                  {editingId === image.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange"
+                        placeholder="Add quick notes about this thumbnail"
+                        rows={2}
+                      />
+                      <div className="flex justify-end gap-2 text-xs">
+                        <button
+                          onClick={() => {
+                            setEditingId(null);
+                            setDraft('');
+                          }}
+                          className="px-3 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => saveNote(image.id)}
+                          className="px-3 py-1 rounded bg-canam-orange text-white font-semibold hover:opacity-90"
+                        >
+                          Save Note
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => startEditing(image)}
+                      className="w-full text-left text-xs text-slate-300 hover:text-white transition-colors flex items-center gap-2"
+                    >
+                      <span>📝</span>
+                      <span>{image.note?.length ? image.note : 'Add inline notes for future reference'}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -157,130 +235,330 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
 };
 
 const App: React.FC = () => {
-  const [basePrompt, setBasePrompt] = useState<string>('');
-  const [model, setModel] = useState<ImageModel>(ImageModel.GEMINI_FLASH_IMAGE);
-  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
-  const [selectedMods, setSelectedMods] = useState<string[]>([]);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<string>('16:9');
-  const [numberOfImages, setNumberOfImages] = useState<number>(2);
+  const {
+    basePrompt,
+    model,
+    selectedVehicle,
+    selectedMods,
+    generatedImages,
+    aspectRatio,
+    numberOfImages,
+    activeModules,
+    selectedScene,
+    selectedNegatives,
+    zoomLevel,
+    isGenerating,
+    error,
+    focusMode,
+    sessionRuns,
+    retryStatus,
+    referenceImage,
+    stylePresets,
+    lastPrompt,
+    actions,
+  } = useAppStore();
 
-  // New modular prompt states
-  const [activeModules, setActiveModules] = useState<string[]>([]);
-  const [selectedScene, setSelectedScene] = useState<string | null>(null);
-  const [selectedNegatives, setSelectedNegatives] = useState<string[]>([]);
-  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const {
+    setBasePrompt,
+    setModel,
+    setSelectedVehicle,
+    setSelectedMods,
+    setGeneratedImages,
+    setAspectRatio,
+    setNumberOfImages,
+    setActiveModules,
+    setSelectedScene,
+    setSelectedNegatives,
+    setZoomLevel,
+    setIsGenerating,
+    setError,
+    toggleFocusMode,
+    addSessionRun,
+    updateSessionRun,
+    setRetryStatus,
+    setReferenceImage,
+    loadLastSessionSnapshot,
+    persistSessionSnapshot,
+    addStylePreset,
+    removeStylePreset,
+    setLastPrompt,
+    updateGeneratedImage,
+  } = actions;
 
-  // Modal states
-  const [textEditorImage, setTextEditorImage] = useState<{ url: string; prompt?: string } | null>(null);
+  const [textEditorImage, setTextEditorImage] = useState<{ url: string; prompt?: string; copyIdeas?: string[] } | null>(null);
   const [filterEditorImage, setFilterEditorImage] = useState<string | null>(null);
-  const [exportImage, setExportImage] = useState<string | null>(null);
+  const [exportImage, setExportImage] = useState<GeneratedImage | null>(null);
   const [colorExtractorImage, setColorExtractorImage] = useState<string | null>(null);
   const [showVideoExtractor, setShowVideoExtractor] = useState(false);
   const [showBrandLibrary, setShowBrandLibrary] = useState(false);
   const [showBatchQueue, setShowBatchQueue] = useState(false);
   const [showABComparison, setShowABComparison] = useState(false);
+  const [cacheHit, setCacheHit] = useState(false);
 
-  // Load saved theme on mount
-  useEffect(() => {
-    // Theme functionality removed
-  }, []);
-
-  // Build the final prompt
   const buildFinalPrompt = useCallback(() => {
-    let prompt = basePrompt;
-
-    // Add vehicle
+    let prompt = basePrompt.trim();
     if (selectedVehicle) {
       prompt = `${selectedVehicle} ${prompt}`;
     }
-
-    // Add mods
     if (selectedMods.length > 0) {
       prompt = `${prompt}, equipped with ${selectedMods.join(', ')}`;
     }
-
-    // Add scene
     if (selectedScene) {
       const scene = SCENE_LIBRARY.find((s) => s.id === selectedScene);
       if (scene) {
         prompt = `${prompt}, ${scene.keywords}`;
       }
     }
+    const negativePrompt = selectedNegatives.join(', ');
+    const { enhancedPrompt } = buildModularPrompt(prompt, activeModules, negativePrompt);
+    return negativePrompt ? `${enhancedPrompt} --no ${negativePrompt}` : enhancedPrompt;
+  }, [basePrompt, selectedVehicle, selectedMods, selectedScene, selectedNegatives, activeModules]);
 
-    // Add modules
-    const { enhancedPrompt } = buildModularPrompt(prompt, activeModules);
-
-    return enhancedPrompt;
-  }, [basePrompt, selectedVehicle, selectedScene, activeModules]);
-
-  const finalPrompt = buildFinalPrompt();
-  const isGenerateDisabled = !finalPrompt.trim() || isLoading;
+  const finalPrompt = useMemo(() => buildFinalPrompt(), [buildFinalPrompt]);
+  const isGenerateDisabled = !finalPrompt.trim() || isGenerating;
 
   const handleGenerate = useCallback(async () => {
     if (isGenerateDisabled) return;
-
-    setIsLoading(true);
+    persistSessionSnapshot();
+    setIsGenerating(true);
     setError(null);
+    setRetryStatus(null);
+    setCacheHit(false);
     setGeneratedImages([]);
 
-    try {
-      const resultUrls = await generateThumbnail(finalPrompt, model, {
-        aspectRatio,
-        numberOfImages,
-      });
+    const cacheKey = await computeCacheKey({
+      prompt: finalPrompt,
+      model,
+      aspectRatio,
+      numberOfImages,
+      selectedVehicle,
+      selectedMods,
+      activeModules,
+      selectedScene,
+      selectedNegatives,
+    });
 
+    const sessionId = `${Date.now()}`;
+    const sessionRecord = {
+      id: sessionId,
+      prompt: finalPrompt,
+      cacheKey,
+      timestamp: Date.now(),
+      status: 'pending' as const,
+    };
+    addSessionRun(sessionRecord);
+
+    const cached = await getImagesByCacheKey(cacheKey);
+    if (cached.length > 0) {
+      setGeneratedImages(cached);
+      setCacheHit(true);
+      updateSessionRun(sessionId, { status: 'cached' });
+      setIsGenerating(false);
+      return;
+    }
+
+    try {
+      let resultUrls: string[] = [];
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          resultUrls = await generateThumbnail(finalPrompt, model, {
+            aspectRatio,
+            numberOfImages,
+            imageFile: referenceImage?.file,
+          });
+          break;
+        } catch (err) {
+          if (attempt === maxAttempts) throw err;
+          setRetryStatus(`Retrying... (${attempt + 1}/${maxAttempts})`);
+          await new Promise((resolve) => setTimeout(resolve, attempt * 800));
+        }
+      }
+
+      const copyIdeas = await generateCopySuggestions(finalPrompt).catch(() => []);
+      const timestamp = Date.now();
       const images: GeneratedImage[] = resultUrls.map((url, index) => ({
-        id: `${Date.now()}-${index}`,
+        id: `${timestamp}-${index}`,
         url,
         model,
         prompt: finalPrompt,
         vehicle: selectedVehicle || undefined,
-        timestamp: Date.now(),
-        settings: {
-          aspectRatio,
-          numberOfImages,
-          model,
-        },
+        timestamp,
+        settings: { aspectRatio, numberOfImages, model },
+        cacheKey,
+        referenceImage: referenceImage?.preview,
+        sessionId,
+        copyIdeas,
       }));
 
       setGeneratedImages(images);
-
-      // Save to history
-      images.forEach((img) => saveToHistory(img));
+      await saveManyToHistory(images);
+      window.dispatchEvent(new CustomEvent('history:refresh'));
+      setLastPrompt(finalPrompt);
+      updateSessionRun(sessionId, { status: 'completed' });
+      setReferenceImage(null);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+      const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      setError(message);
+      updateSessionRun(sessionId, { status: 'failed' });
     } finally {
-      setIsLoading(false);
+      setRetryStatus(null);
+      setIsGenerating(false);
     }
-  }, [finalPrompt, model, aspectRatio, numberOfImages, selectedVehicle, isGenerateDisabled]);
+  }, [
+    isGenerateDisabled,
+    persistSessionSnapshot,
+    setIsGenerating,
+    setError,
+    setRetryStatus,
+    setGeneratedImages,
+    addSessionRun,
+    setCacheHit,
+    finalPrompt,
+    model,
+    aspectRatio,
+    numberOfImages,
+    selectedVehicle,
+    selectedMods,
+    activeModules,
+    selectedScene,
+    selectedNegatives,
+    referenceImage,
+    updateSessionRun,
+    setLastPrompt,
+    setReferenceImage,
+  ]);
 
-  const handleLoadTemplate = useCallback((template: Template) => {
-    setBasePrompt(template.prompt);
-    setModel(template.model);
-    setSelectedVehicle(template.vehicle || null);
-    setAspectRatio(template.settings.aspectRatio);
-    setNumberOfImages(template.settings.numberOfImages);
-  }, []);
+  const handleLoadTemplate = useCallback(
+    (template: Template) => {
+      setBasePrompt(template.prompt);
+      setModel(template.model);
+      setSelectedVehicle(template.vehicle || null);
+      setAspectRatio(template.settings.aspectRatio);
+      setNumberOfImages(template.settings.numberOfImages);
+    },
+    [setBasePrompt, setModel, setSelectedVehicle, setAspectRatio, setNumberOfImages],
+  );
 
   const handleVideoFrameSelect = useCallback((frameDataUrl: string) => {
     setShowVideoExtractor(false);
     setFilterEditorImage(frameDataUrl);
   }, []);
 
+  const handleReferenceDrop = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setReferenceImage({ preview: reader.result as string, file });
+      };
+      reader.readAsDataURL(file);
+    },
+    [setReferenceImage],
+  );
+
+  const handleUpdateNote = useCallback(
+    async (imageId: string, note: string) => {
+      updateGeneratedImage(imageId, { note });
+      await updateHistoryImage(imageId, { note });
+    },
+    [updateGeneratedImage],
+  );
+
+  const handleSaveStylePreset = useCallback(
+    (name: string) => {
+      if (!name.trim() || activeModules.length === 0) return;
+      const preset: StylePreset = {
+        id: `${Date.now()}`,
+        name: name.trim(),
+        modules: activeModules,
+        sceneId: selectedScene,
+        createdAt: Date.now(),
+      };
+      addStylePreset(preset);
+    },
+    [activeModules, selectedScene, addStylePreset],
+  );
+
+  const handleApplyStylePreset = useCallback(
+    (preset: StylePreset) => {
+      setActiveModules(preset.modules);
+      setSelectedScene(preset.sceneId);
+    },
+    [setActiveModules, setSelectedScene],
+  );
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        handleGenerate();
+      }
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (event.key === '[') {
+          setZoomLevel(Math.max(25, zoomLevel - 5));
+        }
+        if (event.key === ']') {
+          setZoomLevel(Math.min(200, zoomLevel + 5));
+        }
+      }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        if (generatedImages[0]) {
+          setExportImage(generatedImages[0]);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleGenerate, zoomLevel, setZoomLevel, generatedImages]);
+
+  const leftColumnClasses = focusMode
+    ? 'hidden space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2'
+    : 'col-span-12 lg:col-span-5 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2';
+
+  const rightColumnClasses = focusMode ? 'col-span-12 space-y-4' : 'col-span-12 lg:col-span-7 space-y-4';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-200 pb-32">
       <Header />
 
-      <main className="max-w-[2000px] mx-auto px-6 py-6">
-        {/* True 2-Column Layout */}
+      <main className="max-w-[2000px] mx-auto px-6 py-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={loadLastSessionSnapshot}
+              className="px-4 py-2 rounded-lg border border-slate-700 text-sm text-white hover:border-canam-orange transition-colors"
+            >
+              ♻️ Load yesterday&apos;s setup
+            </button>
+            <button
+              onClick={toggleFocusMode}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                focusMode ? 'bg-canam-orange text-white' : 'border border-slate-700 text-white'
+              }`}
+            >
+              {focusMode ? 'Exit Focus Mode' : 'Enter Focus Mode'}
+            </button>
+          </div>
+          {referenceImage?.preview && (
+            <div className="flex items-center gap-3 bg-slate-900/60 border border-slate-700 rounded-xl px-3 py-2">
+              <img src={referenceImage.preview} alt="Reference" className="w-14 h-14 object-cover rounded-lg border border-slate-600" />
+              <div>
+                <p className="text-xs text-slate-400">Reference pairing ready</p>
+                <button
+                  onClick={() => setReferenceImage(null)}
+                  className="text-xs text-red-400 hover:text-red-200"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-12 gap-6">
-          {/* LEFT COLUMN - Input & Controls */}
-          <div className="col-span-5 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
-            {/* Vehicle Selection */}
+          <div className={leftColumnClasses}>
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
               <VehicleSelector
                 selectedVehicle={selectedVehicle}
@@ -290,40 +568,29 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* Base Prompt Builder */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
-              <SmartPromptBuilder
-                vehicle={selectedVehicle}
-                onPromptChange={setBasePrompt}
-                initialPrompt={basePrompt}
-              />
+              <SmartPromptBuilder vehicle={selectedVehicle} onPromptChange={setBasePrompt} initialPrompt={basePrompt} />
             </div>
 
-            {/* Prompt Modules */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
               <PromptModuleSelector
                 activeModules={activeModules}
                 onModulesChange={setActiveModules}
+                stylePresets={stylePresets}
+                onSavePreset={handleSaveStylePreset}
+                onApplyPreset={handleApplyStylePreset}
+                onDeletePreset={removeStylePreset}
               />
             </div>
 
-            {/* Scene Library */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
-              <SceneLibrarySelector
-                selectedScene={selectedScene}
-                onSceneSelect={setSelectedScene}
-              />
+              <SceneLibrarySelector selectedScene={selectedScene} onSceneSelect={setSelectedScene} />
             </div>
 
-            {/* Negative Prompts */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
-              <NegativePromptBuilder
-                selectedNegatives={selectedNegatives}
-                onNegativesChange={setSelectedNegatives}
-              />
+              <NegativePromptBuilder selectedNegatives={selectedNegatives} onNegativesChange={setSelectedNegatives} />
             </div>
 
-            {/* Generation Settings */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <span className="text-2xl">⚙️</span> Generation Settings
@@ -344,52 +611,39 @@ const App: React.FC = () => {
                 </select>
               </div>
 
-              {model === ImageModel.IMAGEN && (
-                <>
-                  <div>
-                    <label htmlFor="aspectRatio" className="block text-sm font-medium text-slate-300 mb-2">
-                      Aspect Ratio
-                    </label>
-                    <select
-                      id="aspectRatio"
-                      value={aspectRatio}
-                      onChange={(e) => setAspectRatio(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
-                    >
-                      <option value="16:9">📺 16:9 (YouTube Standard)</option>
-                      <option value="1:1">⬛ 1:1 (Square)</option>
-                      <option value="9:16">📱 9:16 (Vertical)</option>
-                      <option value="4:3">🖼️ 4:3 (Standard)</option>
-                    </select>
-                  </div>
+              <div>
+                <label htmlFor="aspectRatio" className="block text-sm font-medium text-slate-300 mb-2">
+                  Aspect Ratio
+                </label>
+                <select
+                  id="aspectRatio"
+                  value={aspectRatio}
+                  onChange={(e) => setAspectRatio(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-canam-orange text-sm"
+                >
+                  <option value="16:9">📺 16:9 (YouTube Standard)</option>
+                  <option value="1:1">⬛ 1:1 (Square)</option>
+                  <option value="9:16">📱 9:16 (Vertical)</option>
+                  <option value="4:3">🖼️ 4:3 (Standard)</option>
+                </select>
+              </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Number of Images: <span className="text-canam-orange font-bold">{numberOfImages}</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="4"
-                      step="1"
-                      value={numberOfImages}
-                      onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-canam-orange"
-                    />
-                    <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>1</span>
-                      <span>2</span>
-                      <span>3</span>
-                      <span>4</span>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Number of Images: <span className="text-canam-orange font-bold">{numberOfImages}</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="4"
+                  step="1"
+                  value={numberOfImages}
+                  onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))}
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-canam-orange"
+                />
+              </div>
             </div>
 
-            {/* Theme Selector - Removed */}
-
-            {/* Template Library */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
               <TemplateLibrary
                 onLoadTemplate={handleLoadTemplate}
@@ -400,7 +654,6 @@ const App: React.FC = () => {
               />
             </div>
 
-            {/* Pro Tools */}
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl space-y-3">
               <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <span className="text-2xl">🚀</span> Pro Tools
@@ -438,9 +691,7 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN - Output & Preview */}
-          <div className="col-span-7 space-y-4">
-            {/* Interactive Prompt Preview */}
+          <div className={rightColumnClasses}>
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
               <InteractivePromptPreview
                 basePrompt={basePrompt}
@@ -448,10 +699,10 @@ const App: React.FC = () => {
                 selectedScene={selectedScene}
                 selectedNegatives={selectedNegatives}
                 vehicle={selectedVehicle}
+                previousPrompt={lastPrompt}
               />
             </div>
 
-            {/* Error Display */}
             {error && (
               <div className="bg-red-900/30 border-2 border-red-700 text-red-300 px-4 py-3 rounded-lg text-sm">
                 <p className="font-bold">⚠️ Error:</p>
@@ -459,25 +710,38 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Zoom Controls (only show when images exist) */}
+            {retryStatus && (
+              <div className="bg-slate-800/70 border border-slate-700 text-slate-200 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                <span>🔁</span>
+                <span>{retryStatus}</span>
+              </div>
+            )}
+
             {generatedImages.length > 0 && (
               <div className="flex justify-end">
                 <ZoomControls zoomLevel={zoomLevel} onZoomChange={setZoomLevel} />
               </div>
             )}
 
-            {/* Image Display */}
             <ImageDisplay
-              isLoading={isLoading}
+              isLoading={isGenerating}
               generatedImages={generatedImages}
               zoomLevel={zoomLevel}
-              onAddText={(url, promptText) => setTextEditorImage({ url, prompt: promptText })}
+              onAddText={(url, promptText, copyIdeas) => setTextEditorImage({ url, prompt: promptText, copyIdeas })}
               onFilter={setFilterEditorImage}
               onExport={setExportImage}
               onExtractColors={setColorExtractorImage}
+              onUpdateNote={handleUpdateNote}
+              onReferenceDrop={handleReferenceDrop}
             />
 
-            {/* Filmstrip History */}
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
+              <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <span>🕒</span> Session Timeline
+              </h3>
+              <SessionTimeline runs={sessionRuns} />
+            </div>
+
             <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-5 shadow-xl">
               <FilmstripHistory onImageSelect={setFilterEditorImage} />
             </div>
@@ -485,75 +749,64 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Sticky Generate Bar */}
       <StickyGenerateBar
         prompt={finalPrompt}
-        isLoading={isLoading}
+        isLoading={isGenerating}
         isDisabled={isGenerateDisabled}
         onGenerate={handleGenerate}
         activeModulesCount={activeModules.length}
         selectedScene={selectedScene}
         selectedNegativesCount={selectedNegatives.length}
+        cacheHit={cacheHit}
+        retryStatus={retryStatus}
       />
 
-      {/* Modals */}
       {textEditorImage && (
         <TextOverlayEditor
           imageUrl={textEditorImage.url}
           originalPrompt={textEditorImage.prompt}
+          copyIdeas={textEditorImage.copyIdeas}
           onClose={() => setTextEditorImage(null)}
         />
       )}
 
-      {filterEditorImage && (
-        <ImageFilterEditor
-          imageUrl={filterEditorImage}
-          onClose={() => setFilterEditorImage(null)}
-        />
-      )}
+      {filterEditorImage && <ImageFilterEditor imageUrl={filterEditorImage} onClose={() => setFilterEditorImage(null)} />}
 
       {exportImage && (
         <MultiFormatExport
-          imageUrl={exportImage}
+          image={exportImage}
           onClose={() => setExportImage(null)}
-          imageName="thumbnail"
         />
       )}
 
-      {colorExtractorImage && (
-        <ColorPaletteExtractor
-          imageUrl={colorExtractorImage}
-          onClose={() => setColorExtractorImage(null)}
-        />
-      )}
+      {colorExtractorImage && <ColorPaletteExtractor imageUrl={colorExtractorImage} onClose={() => setColorExtractorImage(null)} />}
 
       {showVideoExtractor && (
-        <VideoFrameExtractor
-          onFrameSelect={handleVideoFrameSelect}
-          onClose={() => setShowVideoExtractor(false)}
-        />
+        <Suspense fallback={<Loader />}>
+          <LazyVideoFrameExtractor onFrameSelect={handleVideoFrameSelect} onClose={() => setShowVideoExtractor(false)} />
+        </Suspense>
       )}
 
       {showBrandLibrary && (
-        <BrandAssetLibrary
-          isOpen={showBrandLibrary}
-          onClose={() => setShowBrandLibrary(false)}
-        />
+        <Suspense fallback={<Loader />}>
+          <LazyBrandAssetLibrary isOpen={showBrandLibrary} onClose={() => setShowBrandLibrary(false)} />
+        </Suspense>
       )}
 
       {showBatchQueue && (
-        <BatchGenerationQueue
-          isOpen={showBatchQueue}
-          onClose={() => setShowBatchQueue(false)}
-          defaultSettings={{ aspectRatio, numberOfImages, model }}
-        />
+        <Suspense fallback={<Loader />}>
+          <LazyBatchGenerationQueue
+            isOpen={showBatchQueue}
+            onClose={() => setShowBatchQueue(false)}
+            defaultSettings={{ aspectRatio, numberOfImages, model }}
+          />
+        </Suspense>
       )}
 
       {showABComparison && (
-        <ABComparison
-          images={generatedImages}
-          onClose={() => setShowABComparison(false)}
-        />
+        <Suspense fallback={<Loader />}>
+          <LazyABComparison images={generatedImages} onClose={() => setShowABComparison(false)} />
+        </Suspense>
       )}
     </div>
   );

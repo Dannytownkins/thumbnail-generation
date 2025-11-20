@@ -8,6 +8,8 @@ interface StickyGenerateBarProps {
   activeModulesCount: number;
   selectedScene: string | null;
   selectedNegativesCount: number;
+  cacheHit?: boolean;
+  retryStatus?: string | null;
 }
 
 const StickyGenerateBar: React.FC<StickyGenerateBarProps> = ({
@@ -18,6 +20,8 @@ const StickyGenerateBar: React.FC<StickyGenerateBarProps> = ({
   activeModulesCount,
   selectedScene,
   selectedNegativesCount,
+  cacheHit,
+  retryStatus,
 }) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-slate-950 via-slate-900 to-transparent backdrop-blur-sm border-t border-slate-800 shadow-2xl">
@@ -46,6 +50,18 @@ const StickyGenerateBar: React.FC<StickyGenerateBarProps> = ({
             <div className="text-sm text-slate-300 truncate max-w-3xl">
               {prompt || <span className="text-slate-500 italic">Enter a prompt to get started...</span>}
             </div>
+            {cacheHit && (
+              <div className="text-xs text-green-300 mt-1 flex items-center gap-1">
+                <span>♻️</span>
+                <span>Served from local cache</span>
+              </div>
+            )}
+            {retryStatus && !isLoading && (
+              <div className="text-xs text-yellow-300 mt-1 flex items-center gap-1">
+                <span>🔁</span>
+                <span>{retryStatus}</span>
+              </div>
+            )}
           </div>
 
           {/* Generate Button */}
